@@ -1,196 +1,222 @@
 <!DOCTYPE html>
 <html>
-<body>                                                                                      
-<audio id="buttonOverAudio">
+
+<body>
+    <audio id="buttonOverAudio">
     <source src = "sound/buttonOver.mp3" type = "audio/mpeg">
-</audio>
-<script src="pixi.min.js"></script>
-<style>* {padding: 0; margin: 0}</style>
-<script type="text/javascript">
+    </audio>
+    <label for="angle">Enter Angle:</label>
+    <input type="number" id="angle" name="angle">
+    <label for="power">Enter Power:</label>
+    <input type="number" id="power" name="power">
+    <label for="wind">Enter Wind Power:</label>
+    <input type="number" id="wind" name="wind"><br><br>
+    <script src="pixi.min.js"></script>
+    <style>
+        * {
+            padding: 0;
+            margin: 0
+        }
+    </style>
+    <script type="text/javascript">
+        var renderer = PIXI.autoDetectRenderer();
+        var app = new PIXI.Application();
+
+        // Ticker render bullet per frame
+        const ticker = new PIXI.ticker.Ticker();
+        ticker.stop();
+        // t - TimePassed
+        let t;
+        // v0 - Power, g - Gravity, a - WindPower
+        var v0, angle, g, a;
+
+        //Add the canvas that Pixi automatically created for you to the HTML document
+        document.body.appendChild(renderer.view);
+        document.body.appendChild(app.view);
+
+        renderer.view.style.position = "absolute";
+        renderer.view.style.display = "block";
+        renderer.autoResize = true;
+        renderer.resize(window.innerWidth, window.innerHeight);
+
+        // create the root of the scene graph
+        var menuScene = new PIXI.Container();
+
+        // create a background...
+        var background = PIXI.Sprite.fromImage('image.jpg');
+        background.width = renderer.width;
+        background.height = renderer.height;
+
+        // add background to menuScene...
+        menuScene.addChild(background);
+
+        // Add button texture from an image path
+        var textureButton = [
+            PIXI.Texture.fromImage('image/Play.png'),
+            PIXI.Texture.fromImage('image/Options.png'),
+            PIXI.Texture.fromImage('image/Exit.png')
+        ];
+        var spriteBullet = PIXI.Sprite.from('image/Bullet.png');
+        spriteBullet.anchor.set(0.5);
 
 
+        // Create button array
+        var buttons = [];
 
-var renderer = PIXI.autoDetectRenderer();
+        // Create name array to specify buttons
+        var name = [
+            "Play",
+            "Options",
+            "Exit"
+        ]
 
-//Add the canvas that Pixi automatically created for you to the HTML document
-document.body.appendChild(renderer.view);
+        // Create position array for buttons
+        var buttonPositions = [
+            background.width / 2, background.height / 5,
+            background.width / 2, 2 * background.height / 5,
+            background.width / 2, 3 * background.height / 5
+        ];
 
-renderer.view.style.position = "absolute";
-renderer.view.style.display = "block";
-renderer.autoResize = true;
-renderer.resize(window.innerWidth, window.innerHeight);
+        // Do something when a button is clicked
+        var noop = function() {
+            spriteBullet.x = 0.1 * background.width;
+            spriteBullet.y = 0.8 * background.height;
+            spriteBullet.scale.x = 0.2;
+            spriteBullet.scale.y = 0.2;
+            menuScene.addChild(spriteBullet);
+            t = 0;
+            a = document.getElementById("wind").value;
+            v0 = document.getElementById("power").value,
+                angle = Math.PI / 180 * document.getElementById("angle").value,
+                g = 10;
+            ticker.start();
+        };
 
-// create the root of the scene graph
-var stage = new PIXI.Container();
+        var buttonOverAudio = document.getElementById("buttonOverAudio");
 
-// create a background...
-var background = PIXI.Sprite.fromImage('image.jpg');
-background.width = renderer.width;
-background.height = renderer.height;
+        // Brightness adjustion matrix for filter
+        var brightness = 0.2;
+        var b = (brightness || 0) + 1;
+        var _filter = [
+            b, 0, 0, 0, 0,
+            0, b, 0, 0, 0,
+            0, 0, b, 0, 0,
+            0, 0, 0, 1, 0
+        ];
 
-// add background to stage...
-stage.addChild(background);
+        var filter = new PIXI.filters.ColorMatrixFilter();
+        filter.matrix = _filter;
 
-// Add button texture from an image path
-var textureButton = [
-    PIXI.Texture.fromImage('image/Play.png'),
-    PIXI.Texture.fromImage('image/Options.png'),
-    PIXI.Texture.fromImage('image/Exit.png')
-];
+        // Add buttons to the Scene
+        for (var i = 0; i < 3; i++) {
+            var button = new PIXI.Sprite(textureButton[i]);
+            button.buttonMode = true;
 
+            button.anchor.set(0.5);
+            button.name = name[i];
+            button.position.x = buttonPositions[i * 2];
+            button.position.y = buttonPositions[i * 2 + 1];
 
-// Create button array
-var buttons = [];
-
-// Create name array to specify buttons
-var name = [
-    "Play",
-    "Options",
-    "Exit"
-]
-
-// Create position array for buttons
-var buttonPositions = [
-    background.width/2, background.height/5,
-    background.width/2, 2*background.height/5,
-    background.width/2, 3*background.height/5
-];
-
-// Do something when a button is clicked
-var noop = function () {
-	console.log('click');
-};
-
-var buttonOverAudio = document.getElementById("buttonOverAudio");
-
-var colorMatrix =  [
-    1,0,0,0,
-    0,1,0,0,
-    0,0,1,0,
-    0,0,0,1
-];
-
-
-var brightness = 0.2;
-var b = (brightness || 0) + 1;
-var _filter = [
-		b, 0, 0, 0, 0,
-		0, b, 0, 0, 0,
-		0, 0, b, 0, 0,
-		0, 0, 0, 1, 0
-];
+            // make the button interactive...
+            button.interactive = true;
 
 
+            button
+            // set the mousedown and touchstart callback...
+                .on('mousedown', onButtonDown)
+                .on('touchstart', onButtonDown)
 
-var filter = new PIXI.filters.ColorMatrixFilter();
-filter.matrix =_filter;
+            // set the mouseup and touchend callback...
+            .on('mouseup', onButtonUp)
+                .on('touchend', onButtonUp)
+                .on('mouseupoutside', onButtonUp)
+                .on('touchendoutside', onButtonUp)
 
+            // set the mouseover callback...
+            .on('mouseover', onButtonOver)
 
-for (var i = 0; i < 3; i++)
-{
-    var button = new PIXI.Sprite(textureButton[i]);
-    button.buttonMode = true;
-
-    button.anchor.set(0.5);
-    button.name = name[i];
-    button.position.x = buttonPositions[i*2];
-    button.position.y = buttonPositions[i*2 + 1];
-
-    // make the button interactive...
-    button.interactive = true;
-	
-
-    button
-        // set the mousedown and touchstart callback...
-        .on('mousedown', onButtonDown)
-        .on('touchstart', onButtonDown)
-
-        // set the mouseup and touchend callback...
-        .on('mouseup', onButtonUp)
-        .on('touchend', onButtonUp)
-        .on('mouseupoutside', onButtonUp)
-        .on('touchendoutside', onButtonUp)
-
-        // set the mouseover callback...
-        .on('mouseover', onButtonOver)
-
-        // set the mouseout callback...
-        .on('mouseout', onButtonOut)
+            // set the mouseout callback...
+            .on('mouseout', onButtonOut)
 
 
-        // you can also listen to click and tap events :
-        //.on('click', noop)
-        
-	button.tap = noop;
-	button.click = noop;
-    // add it to the stage
-    stage.addChild(button);
+            // you can also listen to click and tap events :
+            //.on('click', noop)
+
+            button.tap = noop;
+            button.click = noop;
+            // add it to the menuScene
+            menuScene.addChild(button);
+
+            // add button to array
+            buttons.push(button);
+        }
+
+        animate();
+
+        function animate() {
+            // render the menuScene
+            renderer.render(menuScene);
+
+            requestAnimationFrame(animate);
+        }
 
 
-    // add button to array
-    buttons.push(button);
-}
+        function onButtonDown() {
+            this.isDown = true;
+            this.filters = null;
 
-animate();
+        }
 
-function animate() {
-    // render the stage
-    renderer.render(stage);
+        function onButtonUp() {
+            this.isDown = false;
+            if (this.isOver) {
+                this.filters = [filter];
+            } else {
+                this.rotation = 0;
+            }
 
-    requestAnimationFrame(animate);
-}
+        }
 
+        function onButtonOver() {
+            this.isOver = true;
+            if (this.isDown) {
+                return;
+            }
+            // Adjust buttonOver texture
+            this.filters = [filter];
+            this.rotation = 0.2;
+            buttonOverAudio.play();
+        }
 
-function onButtonDown()
-{
-    this.isDown = true;
-    this.filters = null;
+        function onButtonOut() {
+            this.isOver = false;
+            if (this.isDown) {
+                return;
+            }
+            // Adjust buttonOut texture
+            this.filters = null;
+            this.rotation = 0;
+        }
 
-}
+        // Adjust bullet position per frame
+        ticker.add((deltaTime) => {
+            vx = v0 * Math.cos(angle) + a * t / 10;
+            vy = v0 * Math.sin(angle) - g * t / 10;
 
-function onButtonUp()
-{   
-    this.isDown = false;
-    if (this.isOver)
-    {
-        this.filters = [filter];
-    }
-    else
-    {
-        this.rotation = 0;
-    }
+            console.log(Math.cos(angle));
+            console.log(Math.sin(angle));
 
-}
+            spriteBullet.x += vx;
+            spriteBullet.y -= vy;
 
-function onButtonOver()
-{
-    this.isOver = true;
-    if (this.isDown)
-    {
-        return;
-    }
-    // Adjust buttonOver texture
-    this.filters = [filter];
-    this.rotation =0.2;
-    buttonOverAudio.play();
-}
-
-function onButtonOut()
-{
-    this.isOver = false;
-    if (this.isDown)
-    {
-        return;
-    }
-    // Adjust buttonOut texture
-    this.filters = null;
-    this.rotation =0;
-}
-
-
-
-</script>
+            t += 0.1;
+            if (spriteBullet.x > background.width + 100)
+                ticker.stop();
+            if (spriteBullet.x < -100)
+                ticker.stop();
+        });
+    </script>
 
 </body>
-</html>
 
+</html>
