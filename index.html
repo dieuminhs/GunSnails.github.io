@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<body>                                                                                      
+<audio id="buttonOverAudio">
+    <source src = "sound/buttonOver.mp3" type = "audio/mpeg">
+</audio>
+<script src="pixi.min.js"></script>
+<style>* {padding: 0; margin: 0}</style>
+<script type="text/javascript">
+
+
+
+var renderer = PIXI.autoDetectRenderer();
+
+//Add the canvas that Pixi automatically created for you to the HTML document
+document.body.appendChild(renderer.view);
+
+renderer.view.style.position = "absolute";
+renderer.view.style.display = "block";
+renderer.autoResize = true;
+renderer.resize(window.innerWidth, window.innerHeight);
+
+// create the root of the scene graph
+var stage = new PIXI.Container();
+
+// create a background...
+var background = PIXI.Sprite.fromImage('image.jpg');
+background.width = renderer.width;
+background.height = renderer.height;
+
+// add background to stage...
+stage.addChild(background);
+
+// Add button texture from an image path
+var textureButton = [
+    PIXI.Texture.fromImage('image/Play.png'),
+    PIXI.Texture.fromImage('image/Options.png'),
+    PIXI.Texture.fromImage('image/Exit.png')
+];
+
+
+// Create button array
+var buttons = [];
+
+// Create name array to specify buttons
+var name = [
+    "Play",
+    "Options",
+    "Exit"
+]
+
+// Create position array for buttons
+var buttonPositions = [
+    background.width/2, background.height/5,
+    background.width/2, 2*background.height/5,
+    background.width/2, 3*background.height/5
+];
+
+// Do something when a button is clicked
+var noop = function () {
+	console.log('click');
+};
+
+var buttonOverAudio = document.getElementById("buttonOverAudio");
+
+var colorMatrix =  [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1
+];
+
+
+var brightness = 0.2;
+var b = (brightness || 0) + 1;
+var _filter = [
+		b, 0, 0, 0, 0,
+		0, b, 0, 0, 0,
+		0, 0, b, 0, 0,
+		0, 0, 0, 1, 0
+];
+
+
+
+var filter = new PIXI.filters.ColorMatrixFilter();
+filter.matrix =_filter;
+
+
+for (var i = 0; i < 3; i++)
+{
+    var button = new PIXI.Sprite(textureButton[i]);
+    button.buttonMode = true;
+
+    button.anchor.set(0.5);
+    button.name = name[i];
+    button.position.x = buttonPositions[i*2];
+    button.position.y = buttonPositions[i*2 + 1];
+
+    // make the button interactive...
+    button.interactive = true;
+	
+
+    button
+        // set the mousedown and touchstart callback...
+        .on('mousedown', onButtonDown)
+        .on('touchstart', onButtonDown)
+
+        // set the mouseup and touchend callback...
+        .on('mouseup', onButtonUp)
+        .on('touchend', onButtonUp)
+        .on('mouseupoutside', onButtonUp)
+        .on('touchendoutside', onButtonUp)
+
+        // set the mouseover callback...
+        .on('mouseover', onButtonOver)
+
+        // set the mouseout callback...
+        .on('mouseout', onButtonOut)
+
+
+        // you can also listen to click and tap events :
+        //.on('click', noop)
+        
+	button.tap = noop;
+	button.click = noop;
+    // add it to the stage
+    stage.addChild(button);
+
+
+    // add button to array
+    buttons.push(button);
+}
+
+animate();
+
+function animate() {
+    // render the stage
+    renderer.render(stage);
+
+    requestAnimationFrame(animate);
+}
+
+
+function onButtonDown()
+{
+    this.isDown = true;
+    this.filters = null;
+
+}
+
+function onButtonUp()
+{   
+    this.isDown = false;
+    if (this.isOver)
+    {
+        this.filters = [filter];
+    }
+    else
+    {
+        this.rotation = 0;
+    }
+
+}
+
+function onButtonOver()
+{
+    this.isOver = true;
+    if (this.isDown)
+    {
+        return;
+    }
+    // Adjust buttonOver texture
+    this.filters = [filter];
+    this.rotation =0.2;
+    buttonOverAudio.play();
+}
+
+function onButtonOut()
+{
+    this.isOver = false;
+    if (this.isDown)
+    {
+        return;
+    }
+    // Adjust buttonOut texture
+    this.filters = null;
+    this.rotation =0;
+}
+
+
+
+</script>
+
+</body>
+</html>
+
