@@ -11,7 +11,13 @@
     <input type="number" id="power" name="power">
     <label for="wind">Enter Wind Power:</label>
     <input type="number" id="wind" name="wind"><br><br>
+    <script src="bump.js"></script>
     <script src="pixi.min.js"></script>
+    <script src="pixi-filters.js"></script>
+
+
+
+
     <style>
         * {
             padding: 0;
@@ -19,8 +25,11 @@
         }
     </style>
     <script type="text/javascript">
-        var renderer = PIXI.autoDetectRenderer();
+        var renderer = new PIXI.Renderer();
+
         var app = new PIXI.Application();
+
+        var buttonOverAudio = document.getElementById("buttonOverAudio");
 
         // Ticker render bullet per frame
         const ticker = new PIXI.ticker.Ticker();
@@ -30,34 +39,100 @@
         // v0 - Power, g - Gravity, a - WindPower
         var v0, angle, g, a;
 
+
+        var spriteBullet;
+        var tree;
+        let sheet, sheet2;
+
+        // Brightness adjustion matrix for filter
+        var brightness = 0.2;
+        var b = (brightness || 0) + 1;
+        var _filter = [
+            b, 0, 0, 0, 0,
+            0, b, 0, 0, 0,
+            0, 0, b, 0, 0,
+            0, 0, 0, 1, 0
+        ];
+
+        var filter = new PIXI.filters.ColorMatrixFilter();
+        filter.matrix = _filter;
+
+        const outlineFilterBlue = new PIXI.filters.OutlineFilter(2, 0x000000);
+
+
+
+
         //Add the canvas that Pixi automatically created for you to the HTML document
-        document.body.appendChild(renderer.view);
+
         document.body.appendChild(app.view);
 
-        renderer.view.style.position = "absolute";
-        renderer.view.style.display = "block";
-        renderer.autoResize = true;
-        renderer.resize(window.innerWidth, window.innerHeight);
+        // Resize the renderer to fit the window screen
+        app.renderer.view.style.position = "absolute";
+        app.renderer.view.style.display = "block";
+        app.renderer.autoResize = true;
+        app.renderer.resize(window.innerWidth, window.innerHeight);
 
         // create the root of the scene graph
-        var menuScene = new PIXI.Container();
 
-        // create a background...
+
+
+
+        // create a background
         var background = PIXI.Sprite.fromImage('image.jpg');
-        background.width = renderer.width;
-        background.height = renderer.height;
+        background.width = app.renderer.width;
+        background.height = app.renderer.height;
 
-        // add background to menuScene...
-        menuScene.addChild(background);
+        // add background to menuScene
+        app.stage.addChild(background);
 
-        // Add button texture from an image path
-        var textureButton = [
-            PIXI.Texture.fromImage('image/Play.png'),
-            PIXI.Texture.fromImage('image/Options.png'),
-            PIXI.Texture.fromImage('image/Exit.png')
-        ];
-        var spriteBullet = PIXI.Sprite.from('image/Bullet.png');
-        spriteBullet.anchor.set(0.5);
+        // Load các sprite ảnh từ spritesheet bằng file json
+        var textureButton;
+        var textureBullet = PIXI.Texture.fromImage('image/Bullet.png');
+        PIXI.Loader.shared.add("image/spriteSheet.json").load(loadedImages);
+
+
+        function loadedImages() {
+            sheet2 = PIXI.Loader.shared.resources["image/spriteSheet.json"].spritesheet;
+            textureButton = [
+                sheet2.textures["Play.png"],
+                sheet2.textures["Options.png"],
+                sheet2.textures["Exit.jpg"]
+            ];
+            // Add buttons to the Scene
+            addButtons();
+            tree = new PIXI.Sprite(sheet2.textures["Tree.png"]);
+            console.log("Sprite Loaded!");
+
+            loadAnim();
+        }
+
+
+
+        function loadAnim() {
+
+
+            // Load các sprite ảnh tạo nên Animation từ spritesheet bằng file json
+
+            PIXI.Loader.shared.add("image/explosionSheet.json").load(setup);
+
+
+            function setup() {
+                sheet = PIXI.Loader.shared.resources["image/explosionSheet.json"].spritesheet;
+            }
+
+            console.log(tree.width);
+            tree.anchor.set(0.5);
+            tree.scale.x = 0.5;
+            tree.scale.y = 0.5;
+            tree.x = 0.8 * background.width;
+            tree.y = 0.8 * background.height;
+            tree.filters = [outlineFilterBlue];
+            app.stage.addChild(tree);
+
+
+            console.log("Animation Loaded!");
+        }
+
 
 
         // Create button array
@@ -78,87 +153,53 @@
         ];
 
         // Do something when a button is clicked
-        var noop = function() {
+        var shootBullet = function() {
+
+            spriteBullet = new PIXI.Sprite(textureBullet);
+            spriteBullet.anchor.set(0.5);
             spriteBullet.x = 0.1 * background.width;
             spriteBullet.y = 0.8 * background.height;
             spriteBullet.scale.x = 0.2;
             spriteBullet.scale.y = 0.2;
-            menuScene.addChild(spriteBullet);
+            app.stage.addChild(spriteBullet);
             t = 0;
             a = document.getElementById("wind").value;
             v0 = document.getElementById("power").value,
                 angle = Math.PI / 180 * document.getElementById("angle").value,
                 g = 10;
             ticker.start();
+
+            app.render();
+            console.log(app.x);
+            console.log(app.y);
+            var array = app.renderer.extract.pixels(tree);
+
+
+            console.log(array);
+            console.log(app.renderer.width);
+            console.log(app.renderer.height);
+
+
+            var black = [];
+
+            for (i = 0; i < array.length / 4; i++) {
+                if (array[4 * i] == 0 && array[4 * i + 1] == 0 && array[4 * i + 2] == 0) {
+                    black[i] = 1;
+                } else {
+                    black[i] = 0;
+                }
+            }
+
+
+            console.log(black);
+            var result = array.filter(color => color == 0);
+
+            console.log(result);
         };
 
-        var buttonOverAudio = document.getElementById("buttonOverAudio");
-
-        // Brightness adjustion matrix for filter
-        var brightness = 0.2;
-        var b = (brightness || 0) + 1;
-        var _filter = [
-            b, 0, 0, 0, 0,
-            0, b, 0, 0, 0,
-            0, 0, b, 0, 0,
-            0, 0, 0, 1, 0
-        ];
-
-        var filter = new PIXI.filters.ColorMatrixFilter();
-        filter.matrix = _filter;
-
-        // Add buttons to the Scene
-        for (var i = 0; i < 3; i++) {
-            var button = new PIXI.Sprite(textureButton[i]);
-            button.buttonMode = true;
-
-            button.anchor.set(0.5);
-            button.name = name[i];
-            button.position.x = buttonPositions[i * 2];
-            button.position.y = buttonPositions[i * 2 + 1];
-
-            // make the button interactive...
-            button.interactive = true;
 
 
-            button
-            // set the mousedown and touchstart callback...
-                .on('mousedown', onButtonDown)
-                .on('touchstart', onButtonDown)
 
-            // set the mouseup and touchend callback...
-            .on('mouseup', onButtonUp)
-                .on('touchend', onButtonUp)
-                .on('mouseupoutside', onButtonUp)
-                .on('touchendoutside', onButtonUp)
-
-            // set the mouseover callback...
-            .on('mouseover', onButtonOver)
-
-            // set the mouseout callback...
-            .on('mouseout', onButtonOut)
-
-
-            // you can also listen to click and tap events :
-            //.on('click', noop)
-
-            button.tap = noop;
-            button.click = noop;
-            // add it to the menuScene
-            menuScene.addChild(button);
-
-            // add button to array
-            buttons.push(button);
-        }
-
-        animate();
-
-        function animate() {
-            // render the menuScene
-            renderer.render(menuScene);
-
-            requestAnimationFrame(animate);
-        }
 
 
         function onButtonDown() {
@@ -172,7 +213,7 @@
             if (this.isOver) {
                 this.filters = [filter];
             } else {
-                this.rotation = 0;
+
             }
 
         }
@@ -184,7 +225,7 @@
             }
             // Adjust buttonOver texture
             this.filters = [filter];
-            this.rotation = 0.2;
+
             buttonOverAudio.play();
         }
 
@@ -195,26 +236,87 @@
             }
             // Adjust buttonOut texture
             this.filters = null;
-            this.rotation = 0;
+
         }
+
 
         // Adjust bullet position per frame
         ticker.add((deltaTime) => {
+
+            var b = new Bump(PIXI);
             vx = v0 * Math.cos(angle) + a * t / 10;
             vy = v0 * Math.sin(angle) - g * t / 10;
-
-            console.log(Math.cos(angle));
-            console.log(Math.sin(angle));
 
             spriteBullet.x += vx;
             spriteBullet.y -= vy;
 
-            t += 0.1;
-            if (spriteBullet.x > background.width + 100)
+            t += 0.2;
+
+            if (b.hit(spriteBullet, tree)) {
+                explosion = new PIXI.AnimatedSprite(sheet.animations["explosion3"]);
+                explosion.anchor.set(0.5);
+                explosion.visible = true;
+                explosion.x = spriteBullet.x;
+                explosion.y = spriteBullet.y;
+                explosion.loop = false;
+                explosion.animationSpeed = 0.5;
+
+                app.stage.addChild(explosion);
+                explosion.play();
+
+                explosion.onComplete = function() {
+                    explosion.destroy();
+                }
+                spriteBullet.destroy();
                 ticker.stop();
-            if (spriteBullet.x < -100)
-                ticker.stop();
+            }
+
         });
+
+        function addButtons() {
+            for (var i = 0; i < 3; i++) {
+                var button = new PIXI.Sprite(textureButton[i]);
+                button.buttonMode = true;
+
+                button.anchor.set(0.5);
+                button.name = name[i];
+                button.position.x = buttonPositions[i * 2];
+                button.position.y = buttonPositions[i * 2 + 1];
+
+                // make the button interactive...
+                button.interactive = true;
+
+
+                button
+                // set the mousedown and touchstart callback...
+                    .on('mousedown', onButtonDown)
+                    .on('touchstart', onButtonDown)
+
+                // set the mouseup and touchend callback...
+                .on('mouseup', onButtonUp)
+                    .on('touchend', onButtonUp)
+                    .on('mouseupoutside', onButtonUp)
+                    .on('touchendoutside', onButtonUp)
+
+                // set the mouseover callback...
+                .on('mouseover', onButtonOver)
+
+                // set the mouseout callback...
+                .on('mouseout', onButtonOut)
+
+
+                // you can also listen to click and tap events :
+                //.on('click', shootBullet)
+
+                button.tap = shootBullet;
+                button.click = shootBullet;
+                // add it to the app.stage
+                app.stage.addChild(button);
+
+                // add button to array
+                buttons.push(button);
+            }
+        }
     </script>
 
 </body>
