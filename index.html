@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-
+<link rel="icon" href="data:;base64,=">
 <body>
     <audio id="buttonOverAudio">
     <source src = "sound/buttonOver.mp3" type = "audio/mpeg">
@@ -59,6 +59,7 @@
 
         const outlineFilterBlue = new PIXI.filters.OutlineFilter(2, 0x000000);
 
+        const graphics = new PIXI.Graphics();
 
 
 
@@ -127,8 +128,9 @@
             tree.x = 0.8 * background.width;
             tree.y = 0.8 * background.height;
             tree.filters = [outlineFilterBlue];
-            app.stage.addChild(tree);
 
+
+            app.stage.addChild(tree);
 
             console.log("Animation Loaded!");
         }
@@ -170,9 +172,7 @@
             ticker.start();
 
             app.render();
-            console.log(app.x);
-            console.log(app.y);
-            var array = app.renderer.extract.pixels(tree);
+            var array = app.renderer.extract.pixels(spriteBullet);
 
 
             console.log(array);
