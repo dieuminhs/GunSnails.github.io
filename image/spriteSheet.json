@@ -8,7 +8,7 @@
 	"spriteSourceSize": {"x":0,"y":0,"w":124,"h":124},
 	"sourceSize": {"w":124,"h":124}
 },
-"Exit.jpg":
+"Exit.png":
 {
 	"frame": {"x":590,"y":1,"w":221,"h":70},
 	"rotated": true,
@@ -47,6 +47,6 @@
 	"format": "RGBA8888",
 	"size": {"w":661,"h":693},
 	"scale": "1",
-	"smartupdate": "$TexturePacker:SmartUpdate:4abf062dc6f4fdc8fa0ff7cccf4f992b:2ae8eeac47fe20b6c19fce9643c89d87:ea5d22e715ea7a530878e244f6ee1006$"
+	"smartupdate": "$TexturePacker:SmartUpdate:5c2b3f5cf8a8068384df6c5a4a210797:2a94b7790d81006271d995c531b4ef77:ea5d22e715ea7a530878e244f6ee1006$"
 }
 }
