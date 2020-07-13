@@ -1,137 +1,735 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-    <title>Untitled</title>
-    <style>
-        body {
-            background-color: red;
-        }
-        
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-    </style>
-
-</head>
+<link rel="icon" href="data:;base64,=">
 
 <body>
-
+    <audio id="buttonOverAudio">
+    <source src = "sound/buttonOver.mp3" type = "audio/mpeg">
+    </audio>
+    <label for="angle">Enter Angle:</label>
+    <input type="number" id="angle" name="angle">
+    <label for="power">Enter Power:</label>
+    <input type="number" id="power" name="power">
+    <label for="wind">Enter Wind Power:</label>
+    <input type="number" id="wind" name="wind"><br><br>
+    <script src="bump.js"></script>
     <script src="pixi.min.js"></script>
-
-    <script>
-        var enabled = true;
+    <script src="pixi-filters.js"></script>
 
 
-        //extend PIXI.Graphics to modify its _renderWebGL function
-        function GraphicsNoBlending() {
-            PIXI.Graphics.call(this);
+    <style>
+        * {
+            padding: 0;
+            margin: 0
         }
-        GraphicsNoBlending.prototype = Object.create(PIXI.Graphics.prototype);
-        GraphicsNoBlending.prototype.constructor = GraphicsNoBlending;
-        GraphicsNoBlending.prototype._renderWebGL = function(renderer) {
+    </style>
+    <script type="text/javascript">
+        class Bullet {
+            constructor() {
+                this.damageZone = 0;
 
-            //////////////copy-paste from PIXI.Graphics._renderWebGL
-            if (this.glDirty) {
-                this.dirty = true;
-                this.glDirty = false;
+                this.pureDamage = 0;
+                //...
+                this.pow = 0;
+                this.angle = 0;
+                this.wind = 0;
+                this.g = 0;
+
             }
-
-            renderer.setObjectRenderer(renderer.plugins.graphics);
-            //////////////////////////
-
-            var gl = renderer.gl;
-            gl.disable(gl.BLEND);
-            renderer.plugins.graphics.render(this);
-            gl.enable(gl.BLEND);
-        };
-
-
-        //extend PIXI.Graphics to make it only draw on non-transparent pixels
-        function ShadowGraphics() {
-            PIXI.Graphics.call(this);
         }
-        ShadowGraphics.prototype = Object.create(PIXI.Graphics.prototype);
-        ShadowGraphics.prototype.constructor = ShadowGraphics;
-        ShadowGraphics.prototype._renderWebGL = function(renderer) {
 
-            //////////////copy-paste from PIXI.Graphics._renderWebGL
-            if (this.glDirty) {
-                this.dirty = true;
-                this.glDirty = false;
+        class Snail {
+            constructor() {
+                this.direction = 0;
+                this.health = 100;
             }
+        }
 
-            renderer.setObjectRenderer(renderer.plugins.graphics);
-            //////////////////////////////////
+        var app = new PIXI.Application();
+        var buttonOverAudio = document.getElementById("buttonOverAudio");
 
-            var gl = renderer.gl;
-            gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-            renderer.plugins.graphics.render(this);
-            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-        };
+        const loader = PIXI.Loader.shared;
 
-        PIXI.loader
-            .add('image', 'image/Tree.png');
+        var state;
 
-        PIXI.loader.once('complete', init);
+        // Ticker render bullet per frame
+        const bulletTicker = new PIXI.ticker.Ticker();
+        bulletTicker.stop();
 
-        PIXI.loader.load();
+        const dropTicker = new PIXI.ticker.Ticker();
+        dropTicker.stop();
 
-        function init(loader, resources) {
-            var stage = new PIXI.Container(),
-                renderer = new PIXI.WebGLRenderer(512, 512, {
-                    transparent: true
-                }),
-                texture = resources.image.texture,
-                texture2 = resources.image2.texture;
+        const chargeTicker = new PIXI.ticker.Ticker();
+        chargeTicker.stop();
 
-            document.body.appendChild(renderer.view);
+        var graphics = new PIXI.Graphics();
+        var rectangle = new PIXI.Graphics();
+        // t - TimePassed
+        let t;
+        // v0 - Power, g - Gravity, a - WindPower
+        var v0, angle, g, a,
+            dropSpeed = 3,
+            numb = 1;
 
-            var img = new PIXI.Sprite(texture);
-            stage.addChild(img);
-            //var img2 = new PIXI.Sprite(texture2);
-            //stage.addChild(img2);
+        // Powerbar width
+        var barWidth = 0.1,
+            dir = 1;
 
-            var graphics = new GraphicsNoBlending();
-            stage.addChild(graphics);
-            graphics.beginFill(1, 0);
-            graphics.drawRect(200, 150, 100, 200);
+        // Create player array
+        var player;
+
+        // Platform outline point array
+        var black = [];
+
+        var point = [];
+
+        var cannon;
+
+        // Create button array
+        var buttons = [];
+
+        // Sprite for the game
+        var spriteBullet;
+        let sheet, sheet2;
+
+        // Brightness adjustion matrix for filter
+        var brightness = 0.2;
+        var b = (brightness || 0) + 1;
+        var _filter = [
+            b, 0, 0, 0, 0,
+            0, b, 0, 0, 0,
+            0, 0, b, 0, 0,
+            0, 0, 0, 1, 0
+        ];
+
+        var buttonFilter = new PIXI.filters.ColorMatrixFilter();
+        buttonFilter.matrix = _filter;
+
+        // Outline filter for sprite
+        const outlineFilterBlue = new PIXI.filters.OutlineFilter(1, 0x000000);
+
+        //Add the canvas that Pixi automatically created for you to the HTML document
+        document.body.appendChild(app.view);
+
+        // Resize the renderer to fit the window screen
+
+        app.renderer.resize(1366, 768);
+
+
+
+
+        // Load image Textures from spritesheet with .json files
+        var textureSnail;
+        var textureButton;
+        var textureBullet = PIXI.Texture.fromImage('image/Bullet.png');
+        var progressBar;
+        var textureCannon;
+
+        // playBackground author : <a href='https://www.freepik.com/free-photos-vectors/background'>Background vector created by pikisuperstar - www.freepik.com</a>
+
+        loader.add("image/spriteSheet.json")
+            .add("image/explosionSheet.json")
+            .add('menuBackground', "image/menuBackground.jpg")
+            .add('selectionBackground', "image/selectionBackground.jpg")
+            .add('playBackground', "image/playBackground.jpg")
+            .add('platform', "image/platform.png")
+            .add('snail', "image/Snail.png")
+            .add('progressBar', "image/ProgressBar.png")
+            .add('tree', "image/Tree.png")
+            .add('cannon', "image/Cannon.png")
+            .on('progress', loadProgressHandler);
+
+        function loadProgressHandler() {
+            //Display the file 'url' being loaded
+            console.log('loading: ${resource.url}');
+
+            //Display the currentage of files being loaded
+            console.log('progress: ${loader.progress}');
+        }
+
+
+        // Run after the textures have been loaded
+        loader.load((loader, resources) => {
+            sheet2 = resources["image/spriteSheet.json"].spritesheet;
+            sheet = resources["image/explosionSheet.json"].spritesheet;
+            textureButton = [
+                sheet2.textures["Play.png"],
+                sheet2.textures["Options.png"],
+                sheet2.textures["Exit.png"]
+            ];
+            textureSnail = resources.snail.texture;
+            textureCannon = resources.cannon.texture;
+            console.log("Texture Loaded!");
+
+            //Create the Container for the Scenes
+            menuScene = new PIXI.Container();
+            selectionScene = new PIXI.Container();
+            playScene = new PIXI.Container();
+
+            app.stage.addChild(menuScene);
+            app.stage.addChild(playScene);
+            app.stage.addChild(selectionScene);
+
+            playScene.visible = false;
+            playScene.alpha = 0;
+
+            selectionScene.visible = false;
+            selectionScene.alpha = 0;
+
+            document.body.appendChild(app.view);
+
+
+
+            // Create a Background for Scenes
+
+            const background1 = new PIXI.Sprite(resources.menuBackground.texture);
+            const background2 = new PIXI.Sprite(resources.selectionBackground.texture);
+            const background3 = new PIXI.Sprite(resources.playBackground.texture);
+            background1.width = app.renderer.width;
+            background1.height = app.renderer.height;
+
+            background2.width = app.renderer.width;
+            background2.height = app.renderer.height;
+
+            background3.width = app.renderer.width;
+            background3.height = app.renderer.height;
+
+            platform = new PIXI.Sprite(resources.platform.texture);
+            progressBar = new PIXI.Sprite(resources.progressBar.texture);
+
+            progressBar.scale.set(0.5, 0.5);
+            progressBar.x = 50;
+            progressBar.y = 50;
+
+            graphics.beginFill(0xFF3300);
+            graphics.drawRect(progressBar.x, progressBar.y, 0, progressBar.height);
             graphics.endFill();
 
 
-            var shadowGraphics = new ShadowGraphics();
-            stage.addChild(shadowGraphics);
-            shadowGraphics.beginFill(0, 0.5);
-            shadowGraphics.drawRect(100, 50, 220, 200);
-            shadowGraphics.endFill();
+            rectangle.beginFill(0xffffff);
+            // set the line style to have a width of 5 and set the color to red
+            rectangle.lineStyle(5, 0xFF0000);
+            // draw a rectangle
+            rectangle.drawRect(progressBar.x + 5, progressBar.y + 3, progressBar.width - 9, progressBar.height - 8);
+            rectangle.endFill();
 
-            requestAnimationFrame(update);
+            progressBar.mask = graphics;
 
-            function update() {
-                requestAnimationFrame(update);
-                renderer.render(stage);
+            pixels = app.renderer.extract.pixels(platform);
+
+            // add background to Scenes
+            menuScene.addChild(background1);
+            playScene.addChild(background3);
+            selectionScene.addChild(background2);
+
+            playScene.addChild(platform);
+            playScene.addChild(rectangle);
+            playScene.addChild(progressBar);
+
+            menuButtons();
+
+            state = menu;
+            app.ticker.add(delta => gameLoop(delta));
+
+        });
+
+
+
+        function gameLoop(delta) {
+            //Update the game current state
+            //If space is pressed
+            state(delta);
+        }
+
+        function switchPlay(delta) {
+            if (menuScene.alpha > 0) {
+                menuScene.alpha -= 0.01;
+            } else if (playScene.alpha < 1) {
+                menuScene.visible = false;
+                playScene.visible = true;
+                playScene.alpha += 0.1;
+            } else {
+                dropTicker.start();
+                state = play;
             }
+        }
+
+        function play(delta) {
+
+        }
+
+        function menu(delta) {
+            // Add buttons to the menuScene
+
+
+        }
+
+        function selection(delta) {
+            if (menuScene.alpha > 0) {
+                menuScene.alpha -= 0.01;
+            } else if (selectionScene.alpha < 1) {
+                menuScene.visible = false;
+                selectionScene.visible = true;
+                selectionScene.alpha += 0.1;
+            }
+        }
+
+
+
+
+
+
+        // Do something when a button is clicked
+        var buttonClicked = function() {
+            switch (this.name) {
+                case "Play":
+                    {
+                        var lastKeyUpAt;
+                        //Capture the keyboard arrow keys
+                        let left = keyboard(37),
+                            up = keyboard(38),
+                            right = keyboard(39),
+                            down = keyboard(40);
+
+                        let space = keyboard(32);
+
+                        //Left arrow key `press` method
+                        left.press = () => {
+                            //Change the cat's velocity when the key is pressed
+                            vx = -5;
+                            vy = 0;
+                        };
+
+                        //Left arrow key `release` method
+                        left.release = () => {
+                            //If the left arrow has been released, and the right arrow isn't down,
+                            //and the cat isn't moving vertically:
+                            //Stop the cat
+                            if (!right.isDown && vy === 0) {
+                                vx = 0;
+                            }
+                        };
+
+                        //Up
+                        up.press = () => {
+                            vy = -5;
+                        };
+                        up.release = () => {
+                            if (!down.isDown && vx === 0) {
+                                vy = 0;
+                            }
+                        };
+
+                        //Right
+                        right.press = () => {
+                            vx = 5;
+                            vy = 0;
+                        };
+                        right.release = () => {
+                            if (!left.isDown && vy === 0) {
+                                vx = 0;
+                            }
+                        };
+
+                        //Down
+                        down.press = () => {
+                            vy = 5;
+                        };
+                        down.release = () => {
+                            if (!up.isDown && vx === 0) {
+                                vy = 0;
+                            }
+                        };
+
+                        //Space
+                        space.press = () => {
+                            console.log("test");
+                            chargeTicker.start();
+                            // Set key down time to the current time
+                            var keyDownAt = new Date();
+                            console.log(keyDownAt);
+                            // Use a timeout with 1000ms (this would be your X variable)
+                            setTimeout(function() {
+                                // Compare key down time with key up time
+                                if (+keyDownAt > +lastKeyUpAt)
+                                    console.log(lastKeyUpAt - keyDownAt);
+                                else
+                                    console.log(lastKeyUpAt - keyDownAt);
+                            }, 1000);
+                        };
+
+                        space.release = () => {
+                            // Set lastKeyUpAt to hold the time the last key up event was fired
+                            lastKeyUpAt = new Date();
+                            console.log(lastKeyUpAt);
+                            chargeTicker.stop();
+                            setTimeout(function() {
+                                barWidth = 0.1;
+
+                                graphics = new PIXI.Graphics();
+                                graphics.beginFill(0x00000);
+                                graphics.drawRect(progressBar.x, progressBar.y, barWidth, progressBar.height);
+                                graphics.endFill();
+
+                                progressBar.mask = graphics;
+                            }, 3000);
+                        };
+
+                        // Acquire black points array from the pixels array
+                        for (i = 0; i < pixels.length / 4; i++) {
+                            if (pixels[4 * i] == 0 && pixels[4 * i + 1] == 0 && pixels[4 * i + 2] == 0 && pixels[4 * i + 3] > 0) {
+                                black[i] = 1;
+                            } else {
+                                black[i] = 0;
+                            }
+                        }
+
+                        for (i = 0; i < platform.height; i++) {
+                            for (j = 0; j < platform.width; j++) {
+                                var temp = new PIXI.Point;
+                                var index = j + i * platform.width;
+                                if (black[index]) {
+                                    temp.x = j;
+                                    temp.y = i;
+                                    point.push(temp);
+                                }
+                            }
+                        }
+
+
+                        bulletTicker.add(deltaTime => flyout(deltaTime, spriteBullet, bullet));
+
+                        // var cannon = new PIXI.Sprite;
+
+                        player = 1;
+
+                        snail = new Snail();
+                        snail.sprite = new PIXI.Sprite(textureSnail);
+                        snail.sprite.x = 0.2 * app.renderer.width;
+                        snail.sprite.scale.x = 0.3;
+                        snail.sprite.scale.y = 0.3;
+                        snail.sprite.anchor.set(0.5);
+                        snail.hitArea = new PIXI.Rectangle(snail.sprite.x, snail.sprite.y, 5, 5);
+                        snail.sprite.filters = [outlineFilterBlue];
+
+                        player = snail;
+                        player.direction = Math.floor(Math.random() * 2);
+                        console.log(player.direction);
+                        if (!player.direction) {
+                            player.sprite.scale.x *= -1;
+                        }
+
+                        var _cannon = new PIXI.Sprite(textureCannon);
+                        _cannon.x = snail.sprite.x;
+                        _cannon.y = snail.sprite.y;
+                        _cannon.anchor.set(0, 0.5);
+                        _cannon.scale.x = 0.1;
+                        _cannon.scale.y = 0.1;
+
+                        cannon = _cannon;
+
+                        playScene.addChild(player.sprite);
+                        playScene.addChild(cannon);
+
+                        dropTicker.add(deltaTime => drop(deltaTime));
+
+
+                        chargeTicker.add(deltaTime => charge(deltaTime));
+
+                        state = switchPlay;
+
+                        break;
+                    }
+                case "Options":
+                    {
+
+                        shootBullet(0.8 * app.renderer.width, 0.8 * app.renderer.height, 0, document.getElementById("power").value, angle);
+                        break;
+                    }
+                case "Exit":
+                    {
+                        // buttons.forEach(function(button, index) {
+                        //   button.interactive = false;
+                        //});
+
+                        charge();
+                    }
+            }
+        }
+
+        var shootBullet = function(x, y, type, pow, angle) {
+            if (!bulletTicker.started) {
+                bullet = new Bullet();
+                spriteBullet = new PIXI.Sprite(textureBullet);
+
+                spriteBullet.circular = true;
+                // bullet.damageZone = damageZone[type];
+                // bullet.pureDamage = pureDamage[type];
+                spriteBullet.anchor.set(0.5);
+                spriteBullet.x = x;
+                spriteBullet.y = y;
+                spriteBullet.scale.x = 0.2;
+                spriteBullet.scale.y = 0.2;
+                menuScene.addChild(spriteBullet);
+                t = 0;
+                bullet.pow = pow,
+                    bullet.angle = Math.PI / 180 * document.getElementById("angle").value,
+                    bullet.g = 10;
+                bullet.wind = document.getElementById("wind").value / 2;
+
+                bulletTicker.start();
+            }
+
+
+
+
+        };
+
+
+
+        function onButtonDown() {
+            this.isDown = true;
+            this.filters = null;
+
+        }
+
+        function onButtonUp() {
+            this.isDown = false;
+            if (this.isOver) {
+                this.filters = [buttonFilter];
+            } else {
+
+            }
+
+        }
+
+        function onButtonOver() {
+            this.isOver = true;
+            if (this.isDown) {
+                return;
+            }
+            // Adjust buttonOver texture
+            this.filters = [buttonFilter];
+
+            buttonOverAudio.play();
+        }
+
+        function onButtonOut() {
+            this.isOver = false;
+            if (this.isDown) {
+                return;
+            }
+            // Adjust buttonOut texture
+            this.filters = null;
+
+        }
+
+        function charge(deltaTime) {
+
+            if (barWidth >= progressBar.width || barWidth <= 0) {
+                dir *= -1;
+            }
+            barWidth += 0.75 * dir;
+
+            graphics = new PIXI.Graphics();
+            graphics.beginFill(0x00000);
+            graphics.drawRect(progressBar.x, progressBar.y, barWidth, progressBar.height);
+            graphics.endFill();
+
+            progressBar.mask = graphics;
+        }
+
+        // Adjust bullet position per frame
+        function flyout(deltaTime, spriteBullet, bullet) {
+
+            vx = bullet.pow * Math.cos(bullet.angle) + bullet.wind * t / 10;
+            vy = bullet.pow * Math.sin(bullet.angle) - bullet.g * t / 10;
+
+            var b = new Bump();
+            var hit = false;
+
+            t += 0.2;
+
+            if (spriteBullet.x > app.renderer.width || spriteBullet.y > app.renderer.height ||
+                spriteBullet.x < -spriteBullet.width / 2 || spriteBullet.y < -spriteBullet.height / 2) {
+                menuScene.removeChild(spriteBullet);
+                spriteBullet.destroy();
+                bulletTicker.stop();
+            } else {
+                point.some(function(Point, index) {
+                    if (b.hitTestPoint({
+                                x: Point.x,
+                                y: Point.y
+                            },
+                            spriteBullet,
+                            true)) {
+                        explosion = new PIXI.AnimatedSprite(sheet.animations["explosion3"]);
+                        explosion.anchor.set(0.5);
+                        explosion.visible = true;
+                        explosion.x = spriteBullet.x;
+                        explosion.y = spriteBullet.y;
+                        explosion.loop = false;
+                        explosion.animationSpeed = 0.5;
+
+                        menuScene.addChild(explosion);
+                        explosion.play();
+
+                        explosion.onComplete = function() {
+                            menuScene.removeChild(explosion);
+                            explosion.destroy();
+                        }
+
+                        menuScene.removeChild(spriteBullet);
+                        spriteBullet.destroy();
+                        bulletTicker.stop();
+                        hit = true;
+                        return hit;
+
+                    }
+
+                });
+            }
+            if (!hit) {
+                spriteBullet.x += vx;
+                spriteBullet.y -= vy;
+
+            }
+
+
+        }
+
+        function drop(deltaTime) {
+            console.log("Drop is in");
+            var b = new Bump();
+            var hit = false;
+            point.some(function(Point, index) {
+                if (b.hitTestPoint({
+                            x: Point.x,
+                            y: Point.y
+                        },
+                        player.sprite,
+                        true)) {
+                    hit = true;
+                    return hit;
+                }
+            });
+            if (!hit) {
+                player.sprite.y += dropSpeed;
+                cannon.y += dropSpeed;
+            }
+
+            if (hit) {
+                dropTicker.stop();
+            }
+        }
+
+        function menuButtons() {
+            // Create name array to specify buttons
+            var name = [
+                "Play",
+                "Options",
+                "Exit"
+            ]
+
+            // Create position array for buttons
+            var buttonPositions = [
+                app.renderer.width / 2, app.renderer.height / 5,
+                app.renderer.width / 2, 2 * app.renderer.height / 5,
+                app.renderer.width / 2, 3 * app.renderer.height / 5
+            ];
+            for (var i = 0; i < 3; i++) {
+                var button = new PIXI.Sprite(textureButton[i]);
+                button.buttonMode = true;
+
+                button.anchor.set(0.5);
+                button.name = name[i];
+                button.position.x = buttonPositions[i * 2];
+                button.position.y = buttonPositions[i * 2 + 1];
+
+                // make the button interactive...
+                button.interactive = true;
+
+
+                button
+                // set the mousedown and touchstart callback...
+                    .on('mousedown', onButtonDown)
+                    .on('touchstart', onButtonDown)
+
+                // set the mouseup and touchend callback...
+                .on('mouseup', onButtonUp)
+                    .on('touchend', onButtonUp)
+                    .on('mouseupoutside', onButtonUp)
+                    .on('touchendoutside', onButtonUp)
+
+                // set the mouseover callback...
+                .on('mouseover', onButtonOver)
+
+                // set the mouseout callback...
+                .on('mouseout', onButtonOut)
+
+
+                // you can also listen to click and tap events :
+                //.on('click', shootBullet)
+
+                button.tap = buttonClicked;
+                button.click = buttonClicked;
+                // add it to the app.stage
+                menuScene.addChild(button);
+
+                // add button to array
+                buttons.push(button);
+            }
+        }
+
+        function keyboard(keyCode) {
+            let key = {};
+            key.code = keyCode;
+            key.isDown = false;
+            key.isUp = true;
+            key.press = undefined;
+            key.release = undefined;
+
+            //The `downHandler`
+            key.downHandler = event => {
+                if (event.keyCode === key.code) {
+                    if (key.isUp && key.press) key.press();
+                    key.isDown = true;
+                    key.isUp = false;
+                }
+                event.preventDefault();
+            };
+
+            //The `upHandler`
+            key.upHandler = event => {
+                if (event.keyCode === key.code) {
+                    if (key.isDown && key.release) key.release();
+                    key.isDown = false;
+                    key.isUp = true;
+                }
+                event.preventDefault();
+            };
+
+            //Attach event listeners
+            const downListener = key.downHandler.bind(key);
+            const upListener = key.upHandler.bind(key);
+
+            window.addEventListener(
+                "keydown", downListener, false
+            );
+            window.addEventListener(
+                "keyup", upListener, false
+            );
+
+            // Detach event listeners
+            key.unsubscribe = () => {
+                window.removeEventListener("keydown", downListener);
+                window.removeEventListener("keyup", upListener);
+            };
+
+            return key;
         }
     </script>
 
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer placerat, sem vitae suscipit semper, eros nibh luctus sem, viverra porta purus erat id metus. Praesent egestas euismod velit non pretium. Etiam porttitor ligula elementum arcu blandit, non
-    mollis mauris luctus. Nunc sodales felis ut purus bibendum ornare. Mauris accumsan, nunc sed auctor scelerisque, neque nibh ullamcorper velit, at cursus nisl felis id augue. Duis non libero arcu. Nulla ullamcorper ullamcorper tellus, eget aliquam
-    neque cursus vitae. Nam commodo quam massa, quis feugiat turpis condimentum ac. Phasellus laoreet est sed risus mollis viverra. Phasellus sit amet urna leo. Praesent orci velit, vulputate eu tincidunt quis, sagittis sed lorem. Nam maximus justo et
-    dolor facilisis, et cursus tellus venenatis. Nunc et mi mi. Praesent in viverra diam, at cursus felis. Suspendisse porta vestibulum magna, sed malesuada metus consectetur ac. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere
-    cubilia Curae; Donec elit urna, congue rhoncus nisi interdum, laoreet ullamcorper odio. Mauris mollis nisl a nisi volutpat sodales. Donec bibendum mauris nec dui vulputate, dignissim posuere elit facilisis. Nullam a neque ipsum. Maecenas risus leo,
-    consectetur in sapien fringilla, scelerisque ultricies lectus. Nulla at sem elementum ante tempus molestie nec vel urna. Proin laoreet efficitur erat vel aliquam. Aenean a orci volutpat, posuere diam at, suscipit magna. Cras ac enim at lorem elementum
-    maximus id ac neque. Vestibulum ultrices varius massa ut dignissim. Donec porta volutpat ullamcorper. Sed pulvinar fringilla eros, a semper urna eleifend vehicula. Nam ut libero velit. Nam finibus tincidunt odio, sed pharetra justo mattis at. Sed
-    at condimentum diam. Pellentesque tortor mi, cursus quis orci sed, elementum porttitor elit. Morbi lobortis metus sit amet ipsum euismod, sed ullamcorper mi imperdiet. Pellentesque bibendum ullamcorper justo, vel suscipit augue pellentesque ac. Sed
-    faucibus, velit ac ultricies semper, turpis sem volutpat elit, in vulputate elit enim nec odio. Sed fringilla egestas nulla id placerat. Nam ac placerat nunc. Integer sed sem augue. Nullam accumsan nisi risus, sed aliquam nunc dignissim maximus. Quisque
-    aliquam volutpat metus, a pellentesque nibh facilisis sed. Donec molestie nulla non vulputate sollicitudin. Morbi quis sodales turpis, in molestie tellus. Vestibulum non aliquam arcu. Nam a finibus mi, sit amet porta erat. Nulla quis tortor ut lectus
-    aliquam gravida. Maecenas ut malesuada risus, sit amet mattis orci. Duis aliquet sodales mauris eget tempor. Vestibulum nulla urna, elementum nec varius in, malesuada nec magna. Aliquam eget tortor nec eros gravida suscipit. Integer faucibus nisl
-    nec odio condimentum, et efficitur est pulvinar. Phasellus ac finibus leo. Proin elit metus, lacinia eget enim a, pulvinar blandit tellus. Nullam bibendum metus velit, vitae ornare ante fermentum ac. Aenean ullamcorper velit at cursus venenatis. Quisque
-    tincidunt semper odio, sed ultrices nulla aliquet sit amet. Sed et faucibus tortor.
-
-
-
-    <canvas width=" 512 " height="512 "></canvas></body>
+</body>
 
 </html>
