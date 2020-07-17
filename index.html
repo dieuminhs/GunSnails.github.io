@@ -52,6 +52,16 @@
 
         var state;
 
+        var renderTexture;
+
+        var renderTextureSprite;
+
+        const brush = new PIXI.Graphics();
+        brush.beginFill(0xFFFFFF);
+        brush.drawCircle(0, 0, 50);
+        brush.endFill();
+
+
         // Ticker render bullet per frame
         const bulletTicker = new PIXI.ticker.Ticker();
         bulletTicker.stop();
@@ -62,6 +72,9 @@
         const chargeTicker = new PIXI.ticker.Ticker();
         chargeTicker.stop();
 
+        const coinTicker = new PIXI.ticker.Ticker();
+        coinTicker.stop();
+
         var graphics = new PIXI.Graphics();
         var rectangle = new PIXI.Graphics();
         // t - TimePassed
@@ -69,28 +82,35 @@
         // v0 - Power, g - Gravity, a - WindPower
         var v0, angle, g, a,
             dropSpeed = 3,
-            numb = 1;
+            numb = 1,
+            _vx = 0,
+            _vy = 0;
 
         // Powerbar width
         var barWidth = 0.1,
             dir = 1;
 
         // Create player array
-        var player;
+        var player,
+            playerdir = 1;
 
         // Platform outline point array
         var black = [];
 
         var point = [];
 
+        var nonTransPoint = [];
+
         var cannon;
+
+        var coins = [];
 
         // Create button array
         var buttons = [];
 
         // Sprite for the game
         var spriteBullet;
-        let sheet, sheet2;
+        let sheet, sheet2, sheet3;
 
         // Brightness adjustion matrix for filter
         var brightness = 0.2;
@@ -129,6 +149,7 @@
 
         loader.add("image/spriteSheet.json")
             .add("image/explosionSheet.json")
+            .add("image/coinAnimation.json")
             .add('menuBackground', "image/menuBackground.jpg")
             .add('selectionBackground', "image/selectionBackground.jpg")
             .add('playBackground', "image/playBackground.jpg")
@@ -152,6 +173,8 @@
         loader.load((loader, resources) => {
             sheet2 = resources["image/spriteSheet.json"].spritesheet;
             sheet = resources["image/explosionSheet.json"].spritesheet;
+            sheet3 = resources["image/coinAnimation.json"].spritesheet;
+
             textureButton = [
                 sheet2.textures["Play.png"],
                 sheet2.textures["Options.png"],
@@ -185,6 +208,13 @@
             const background1 = new PIXI.Sprite(resources.menuBackground.texture);
             const background2 = new PIXI.Sprite(resources.selectionBackground.texture);
             const background3 = new PIXI.Sprite(resources.playBackground.texture);
+            const background = new PIXI.Sprite(resources.playBackground.texture);
+
+
+            background.width = app.renderer.width;
+            background.height = app.renderer.height;
+
+
             background1.width = app.renderer.width;
             background1.height = app.renderer.height;
 
@@ -193,6 +223,9 @@
 
             background3.width = app.renderer.width;
             background3.height = app.renderer.height;
+
+            renderTexture = PIXI.RenderTexture.create(app.screen.width, app.screen.height);
+            renderTextureSprite = new PIXI.Sprite(renderTexture);
 
             platform = new PIXI.Sprite(resources.platform.texture);
             progressBar = new PIXI.Sprite(resources.progressBar.texture);
@@ -219,14 +252,42 @@
 
             // add background to Scenes
             menuScene.addChild(background1);
-            playScene.addChild(background3);
+
             selectionScene.addChild(background2);
 
+            playScene.addChild(background);
             playScene.addChild(platform);
+
+            // Acquire black points array from the pixels array
+            for (i = 0; i < pixels.length / 4; i++) {
+                if (pixels[4 * i] == 0 && pixels[4 * i + 1] == 0 && pixels[4 * i + 2] == 0 && pixels[4 * i + 3] > 0) {
+                    black[i] = 1;
+                } else if (pixels[4 * i + 3] > 0) {
+                    black[i] = 2;
+                } else black[i] = 0;
+            }
+
+            for (i = 0; i < platform.height; i++) {
+                for (j = 0; j < platform.width; j++) {
+                    var temp = new PIXI.Point;
+                    var index = j + i * platform.width;
+                    if (black[index] == 1) {
+                        temp.x = j;
+                        temp.y = i;
+                        point.push(temp);
+                    }
+                }
+            }
+            console.log(point);
+
             playScene.addChild(rectangle);
             playScene.addChild(progressBar);
 
             menuButtons();
+
+            playScene.addChild(background3);
+
+            background3.mask = renderTextureSprite;
 
             state = menu;
             app.ticker.add(delta => gameLoop(delta));
@@ -250,12 +311,25 @@
                 playScene.alpha += 0.1;
             } else {
                 dropTicker.start();
-                state = play;
+
             }
         }
 
         function play(delta) {
+            cannon.angle += _vy;
+            if (cannon.angle < -360) {
+                cannon.angle += 360;
+            }
+            if (cannon.angle > 360) {
+                cannon.angle -= 360;
+            }
 
+            player.sprite.x += _vx;
+            cannon.x += _vx;
+            if (player.direction != playerdir) {
+                player.direction *= -1;
+                player.sprite.scale.x *= -1;
+            }
         }
 
         function menu(delta) {
@@ -284,6 +358,7 @@
             switch (this.name) {
                 case "Play":
                     {
+
                         var lastKeyUpAt;
                         //Capture the keyboard arrow keys
                         let left = keyboard(37),
@@ -296,8 +371,9 @@
                         //Left arrow key `press` method
                         left.press = () => {
                             //Change the cat's velocity when the key is pressed
-                            vx = -5;
-                            vy = 0;
+                            playerdir = -1;
+                            _vx = -5;
+                            _vy = 0;
                         };
 
                         //Left arrow key `release` method
@@ -305,96 +381,58 @@
                             //If the left arrow has been released, and the right arrow isn't down,
                             //and the cat isn't moving vertically:
                             //Stop the cat
-                            if (!right.isDown && vy === 0) {
-                                vx = 0;
+                            if (!right.isDown && _vy === 0) {
+                                _vx = 0;
                             }
                         };
 
                         //Up
                         up.press = () => {
-                            vy = -5;
+                            _vy = -5;
                         };
                         up.release = () => {
-                            if (!down.isDown && vx === 0) {
-                                vy = 0;
+                            if (!down.isDown) {
+                                _vy = 0;
                             }
                         };
 
                         //Right
                         right.press = () => {
-                            vx = 5;
-                            vy = 0;
+                            playerdir = 1;
+                            _vx = 5;
+                            _vy = 0;
                         };
                         right.release = () => {
-                            if (!left.isDown && vy === 0) {
-                                vx = 0;
+                            if (!left.isDown && _vy === 0) {
+                                _vx = 0;
                             }
                         };
 
                         //Down
                         down.press = () => {
-                            vy = 5;
+                            _vy = 5;
                         };
                         down.release = () => {
-                            if (!up.isDown && vx === 0) {
-                                vy = 0;
+                            if (!up.isDown) {
+                                _vy = 0;
                             }
                         };
 
                         //Space
                         space.press = () => {
-                            console.log("test");
                             chargeTicker.start();
-                            // Set key down time to the current time
-                            var keyDownAt = new Date();
-                            console.log(keyDownAt);
-                            // Use a timeout with 1000ms (this would be your X variable)
-                            setTimeout(function() {
-                                // Compare key down time with key up time
-                                if (+keyDownAt > +lastKeyUpAt)
-                                    console.log(lastKeyUpAt - keyDownAt);
-                                else
-                                    console.log(lastKeyUpAt - keyDownAt);
-                            }, 1000);
+                            var angle2 = cannon.angle;
+                            // shootBullet((cannon.width) * Math.cos(Math.PI * angle2 / 180) + cannon.x, ((cannon.width) * Math.sin(Math.PI * angle2 / 180) + cannon.y), 0, 30, -angle2);
                         };
 
                         space.release = () => {
-                            // Set lastKeyUpAt to hold the time the last key up event was fired
-                            lastKeyUpAt = new Date();
-                            console.log(lastKeyUpAt);
                             chargeTicker.stop();
-                            setTimeout(function() {
-                                barWidth = 0.1;
+                            var angle2 = cannon.angle;
+                            shootBullet((cannon.width) * Math.cos(Math.PI * angle2 / 180) + cannon.x, ((cannon.width) * Math.sin(Math.PI * angle2 / 180) + cannon.y), 0, barWidth / 10, -angle2);
+                            barWidth = 0.1;
 
-                                graphics = new PIXI.Graphics();
-                                graphics.beginFill(0x00000);
-                                graphics.drawRect(progressBar.x, progressBar.y, barWidth, progressBar.height);
-                                graphics.endFill();
-
-                                progressBar.mask = graphics;
-                            }, 3000);
                         };
 
-                        // Acquire black points array from the pixels array
-                        for (i = 0; i < pixels.length / 4; i++) {
-                            if (pixels[4 * i] == 0 && pixels[4 * i + 1] == 0 && pixels[4 * i + 2] == 0 && pixels[4 * i + 3] > 0) {
-                                black[i] = 1;
-                            } else {
-                                black[i] = 0;
-                            }
-                        }
-
-                        for (i = 0; i < platform.height; i++) {
-                            for (j = 0; j < platform.width; j++) {
-                                var temp = new PIXI.Point;
-                                var index = j + i * platform.width;
-                                if (black[index]) {
-                                    temp.x = j;
-                                    temp.y = i;
-                                    point.push(temp);
-                                }
-                            }
-                        }
 
 
                         bulletTicker.add(deltaTime => flyout(deltaTime, spriteBullet, bullet));
@@ -411,22 +449,24 @@
                         snail.sprite.anchor.set(0.5);
                         snail.hitArea = new PIXI.Rectangle(snail.sprite.x, snail.sprite.y, 5, 5);
                         snail.sprite.filters = [outlineFilterBlue];
-
+                        snail.sprite.circular = true;
+                        snail.sprite.radius = snail.sprite.height / 2;
                         player = snail;
                         player.direction = Math.floor(Math.random() * 2);
-                        console.log(player.direction);
+
                         if (!player.direction) {
+                            playerdir = -1;
+                            player.direction = -1;
                             player.sprite.scale.x *= -1;
                         }
 
-                        var _cannon = new PIXI.Sprite(textureCannon);
-                        _cannon.x = snail.sprite.x;
-                        _cannon.y = snail.sprite.y;
-                        _cannon.anchor.set(0, 0.5);
-                        _cannon.scale.x = 0.1;
-                        _cannon.scale.y = 0.1;
+                        cannon = new PIXI.Sprite(textureCannon);
+                        cannon.x = snail.sprite.x;
+                        cannon.y = snail.sprite.y;
+                        cannon.anchor.set(0, 0.5);
+                        cannon.scale.x = 0.1;
+                        cannon.scale.y = 0.1;
 
-                        cannon = _cannon;
 
                         playScene.addChild(player.sprite);
                         playScene.addChild(cannon);
@@ -443,7 +483,7 @@
                 case "Options":
                     {
 
-                        shootBullet(0.8 * app.renderer.width, 0.8 * app.renderer.height, 0, document.getElementById("power").value, angle);
+
                         break;
                     }
                 case "Exit":
@@ -458,9 +498,11 @@
         }
 
         var shootBullet = function(x, y, type, pow, angle) {
+
             if (!bulletTicker.started) {
                 bullet = new Bullet();
                 spriteBullet = new PIXI.Sprite(textureBullet);
+
 
                 spriteBullet.circular = true;
                 // bullet.damageZone = damageZone[type];
@@ -470,10 +512,10 @@
                 spriteBullet.y = y;
                 spriteBullet.scale.x = 0.2;
                 spriteBullet.scale.y = 0.2;
-                menuScene.addChild(spriteBullet);
+                playScene.addChild(spriteBullet);
                 t = 0;
                 bullet.pow = pow,
-                    bullet.angle = Math.PI / 180 * document.getElementById("angle").value,
+                    bullet.angle = Math.PI / 180 * angle,
                     bullet.g = 10;
                 bullet.wind = document.getElementById("wind").value / 2;
 
@@ -544,6 +586,8 @@
 
             vx = bullet.pow * Math.cos(bullet.angle) + bullet.wind * t / 10;
             vy = bullet.pow * Math.sin(bullet.angle) - bullet.g * t / 10;
+            vx *= 0.9;
+            vy *= 0.9;
 
             var b = new Bump();
             var hit = false;
@@ -552,7 +596,7 @@
 
             if (spriteBullet.x > app.renderer.width || spriteBullet.y > app.renderer.height ||
                 spriteBullet.x < -spriteBullet.width / 2 || spriteBullet.y < -spriteBullet.height / 2) {
-                menuScene.removeChild(spriteBullet);
+                playScene.removeChild(spriteBullet);
                 spriteBullet.destroy();
                 bulletTicker.stop();
             } else {
@@ -562,8 +606,9 @@
                                 y: Point.y
                             },
                             spriteBullet,
-                            true)) {
-                        explosion = new PIXI.AnimatedSprite(sheet.animations["explosion3"]);
+                            true
+                        )) {
+                        explosion = new PIXI.AnimatedSprite(sheet.animations["explosion"]);
                         explosion.anchor.set(0.5);
                         explosion.visible = true;
                         explosion.x = spriteBullet.x;
@@ -571,20 +616,22 @@
                         explosion.loop = false;
                         explosion.animationSpeed = 0.5;
 
-                        menuScene.addChild(explosion);
+
+                        playScene.addChild(explosion);
                         explosion.play();
+                        console.log(explosion.x, explosion.y);
+                        destroy(spriteBullet.x, spriteBullet.y);
+
 
                         explosion.onComplete = function() {
-                            menuScene.removeChild(explosion);
+                            playScene.removeChild(explosion);
                             explosion.destroy();
                         }
-
-                        menuScene.removeChild(spriteBullet);
+                        playScene.removeChild(spriteBullet);
                         spriteBullet.destroy();
                         bulletTicker.stop();
                         hit = true;
                         return hit;
-
                     }
 
                 });
@@ -592,9 +639,14 @@
             if (!hit) {
                 spriteBullet.x += vx;
                 spriteBullet.y -= vy;
-
             }
 
+        }
+
+        function destroy(x, y) {
+            brush.position.set(x, y);
+
+            app.renderer.render(brush, renderTexture, false, null, false);
 
         }
 
@@ -616,11 +668,49 @@
             if (!hit) {
                 player.sprite.y += dropSpeed;
                 cannon.y += dropSpeed;
-            }
+            } else {
 
-            if (hit) {
+                state = play;
                 dropTicker.stop();
             }
+        }
+
+        function coinDrop(deltaTime) {
+            var b = new Bump();
+            var hit = false;
+            for (i = 0; i < numb; i++) {
+                var coin = new PIXI.AnimatedSprite(sheet3.animations["coin"]);
+                coin.anchor.set(0.5);
+                coin.x = Math.random() * app.render.width;
+                coin.y = 0;
+                coin.loop = true;
+                coin.animationSpeed = 0.5;
+                coin.play();
+                coins[i] = coin;
+                playScene.addChild(coins[i]);
+            }
+
+            for (i = 0; i < numb; i++) {
+                point.some(function(Point, index) {
+                    if (b.hitTestPoint({
+                                x: Point.x,
+                                y: Point.y
+                            },
+                            coins[i],
+                            true)) {
+                        hit = true;
+                        return hit;
+                    }
+                });
+
+                if (!hit) {
+                    console.log("testest");
+                    coins[i].y += dropSpeed;
+                    console.log(coins[i].y);
+                }
+            }
+
+
         }
 
         function menuButtons() {
@@ -678,6 +768,8 @@
 
                 // add button to array
                 buttons.push(button);
+
+
             }
         }
 

@@ -73,7 +73,7 @@
         }
     },
     "animations": {
-        "explosion3": ["explosion3-0.png", "explosion3-1.png", "explosion3-2.png", "explosion3-3.png", "explosion3-4.png", "explosion3-5.png", "explosion3-6.png", "explosion3-7.png", "explosion3-8.png", "explosion3-9.png"]
+        "explosion": ["explosion3-0.png", "explosion3-1.png", "explosion3-2.png", "explosion3-3.png", "explosion3-4.png", "explosion3-5.png", "explosion3-6.png", "explosion3-7.png", "explosion3-8.png", "explosion3-9.png"]
     },
     "meta": {
         "app": "https://www.codeandweb.com/texturepacker",
