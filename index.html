@@ -6,12 +6,6 @@
     <audio id="buttonOverAudio">
     <source src = "sound/buttonOver.mp3" type = "audio/mpeg">
     </audio>
-    <label for="angle">Enter Angle:</label>
-    <input type="number" id="angle" name="angle">
-    <label for="power">Enter Power:</label>
-    <input type="number" id="power" name="power">
-    <label for="wind">Enter Wind Power:</label>
-    <input type="number" id="wind" name="wind"><br><br>
     <script src="bump.js"></script>
     <script src="pixi.min.js"></script>
     <script src="pixi-filters.js"></script>
@@ -56,6 +50,9 @@
 
         var renderTextureSprite;
 
+        var snailAnim,
+            snailAnim = [];
+
         const brush = new PIXI.Graphics();
         brush.beginFill(0xFFFFFF);
         brush.drawCircle(0, 0, 50);
@@ -75,14 +72,18 @@
         const coinTicker = new PIXI.ticker.Ticker();
         coinTicker.stop();
 
+        const turnTicker = new PIXI.ticker.Ticker();
+        turnTicker.stop();
+
         var graphics = new PIXI.Graphics();
         var rectangle = new PIXI.Graphics();
         // t - TimePassed
-        let t;
+        let t,
+            count;
         // v0 - Power, g - Gravity, a - WindPower
         var v0, angle, g, a,
             dropSpeed = 3,
-            numb = 1,
+            numb = 4,
             _vx = 0,
             _vy = 0;
 
@@ -92,6 +93,7 @@
 
         // Create player array
         var player,
+            players = [],
             playerdir = 1;
 
         // Platform outline point array
@@ -101,7 +103,8 @@
 
         var nonTransPoint = [];
 
-        var cannon;
+        var cannon,
+            cannons = [];
 
         var coins = [];
 
@@ -139,7 +142,7 @@
 
 
         // Load image Textures from spritesheet with .json files
-        var textureSnail;
+        var textureSnail = [];
         var textureButton;
         var textureBullet = PIXI.Texture.fromImage('image/Bullet.png');
         var progressBar;
@@ -149,14 +152,15 @@
 
         loader.add("image/spriteSheet.json")
             .add("image/explosionSheet.json")
-            .add("image/coinAnimation.json")
+            .add("image/snailAnim.json")
+            .add("image/snailAnim2.json")
+            .add("image/snailAnim3.json")
+            .add("image/snailAnim4.json")
             .add('menuBackground', "image/menuBackground.jpg")
             .add('selectionBackground', "image/selectionBackground.jpg")
             .add('playBackground', "image/playBackground.jpg")
             .add('platform', "image/platform.png")
-            .add('snail', "image/Snail.png")
             .add('progressBar', "image/ProgressBar.png")
-            .add('tree', "image/Tree.png")
             .add('cannon', "image/Cannon.png")
             .on('progress', loadProgressHandler);
 
@@ -173,14 +177,24 @@
         loader.load((loader, resources) => {
             sheet2 = resources["image/spriteSheet.json"].spritesheet;
             sheet = resources["image/explosionSheet.json"].spritesheet;
-            sheet3 = resources["image/coinAnimation.json"].spritesheet;
-
+            snailSheet = [
+                resources["image/snailAnim.json"].spritesheet,
+                resources["image/snailAnim2.json"].spritesheet,
+                resources["image/snailAnim3.json"].spritesheet,
+                resources["image/snailAnim4.json"].spritesheet
+            ];
             textureButton = [
                 sheet2.textures["Play.png"],
                 sheet2.textures["Options.png"],
                 sheet2.textures["Exit.png"]
             ];
-            textureSnail = resources.snail.texture;
+            textureSnail = [
+                snailSheet[0].textures["snailAnim-0.png"],
+                snailSheet[1].textures["snailAnim2-0.png"],
+                snailSheet[2].textures["snailAnim3-0.png"],
+                snailSheet[3].textures["snailAnim4-0.png"]
+            ];
+
             textureCannon = resources.cannon.texture;
             console.log("Texture Loaded!");
 
@@ -278,7 +292,7 @@
                     }
                 }
             }
-            console.log(point);
+
 
             playScene.addChild(rectangle);
             playScene.addChild(progressBar);
@@ -298,11 +312,11 @@
 
         function gameLoop(delta) {
             //Update the game current state
-            //If space is pressed
             state(delta);
         }
 
         function switchPlay(delta) {
+            //Switch the scene from menu to play
             if (menuScene.alpha > 0) {
                 menuScene.alpha -= 0.01;
             } else if (playScene.alpha < 1) {
@@ -324,11 +338,14 @@
                 cannon.angle -= 360;
             }
 
+
             player.sprite.x += _vx;
             cannon.x += _vx;
+            snailAnim.x += _vx;
             if (player.direction != playerdir) {
                 player.direction *= -1;
                 player.sprite.scale.x *= -1;
+                snailAnim.scale.x *= -1;
             }
         }
 
@@ -371,6 +388,11 @@
                         //Left arrow key `press` method
                         left.press = () => {
                             //Change the cat's velocity when the key is pressed
+                            if (!right.isDown) {
+                                player.sprite.visible = false;
+                                snailAnim.visible = true;
+                            }
+                            snailAnim.play();
                             playerdir = -1;
                             _vx = -5;
                             _vy = 0;
@@ -381,6 +403,9 @@
                             //If the left arrow has been released, and the right arrow isn't down,
                             //and the cat isn't moving vertically:
                             //Stop the cat
+                            player.sprite.visible = true;
+                            snailAnim.visible = false;
+                            snailAnim.stop();
                             if (!right.isDown && _vy === 0) {
                                 _vx = 0;
                             }
@@ -398,11 +423,19 @@
 
                         //Right
                         right.press = () => {
+                            if (!left.isDown) {
+                                player.sprite.visible = false;
+                                snailAnim.visible = true;
+                            }
+                            snailAnim.play();
                             playerdir = 1;
                             _vx = 5;
                             _vy = 0;
                         };
                         right.release = () => {
+                            player.sprite.visible = true;
+                            snailAnim.visible = false;
+                            snailAnim.stop();
                             if (!left.isDown && _vy === 0) {
                                 _vx = 0;
                             }
@@ -439,40 +472,61 @@
 
                         // var cannon = new PIXI.Sprite;
 
-                        player = 1;
+                        for (i = 0; i < numb; i++) {
 
-                        snail = new Snail();
-                        snail.sprite = new PIXI.Sprite(textureSnail);
-                        snail.sprite.x = 0.2 * app.renderer.width;
-                        snail.sprite.scale.x = 0.3;
-                        snail.sprite.scale.y = 0.3;
-                        snail.sprite.anchor.set(0.5);
-                        snail.hitArea = new PIXI.Rectangle(snail.sprite.x, snail.sprite.y, 5, 5);
-                        snail.sprite.filters = [outlineFilterBlue];
-                        snail.sprite.circular = true;
-                        snail.sprite.radius = snail.sprite.height / 2;
-                        player = snail;
-                        player.direction = Math.floor(Math.random() * 2);
+                            snail = new Snail();
+                            snail.sprite = new PIXI.Sprite(textureSnail[i]);
+                            snail.sprite.x = Math.random() * app.renderer.width;
 
-                        if (!player.direction) {
-                            playerdir = -1;
-                            player.direction = -1;
-                            player.sprite.scale.x *= -1;
+                            snail.sprite.scale.x = 0.3;
+                            snail.sprite.scale.y = 0.3;
+                            snail.sprite.anchor.set(0.5);
+
+                            snail.hitArea = new PIXI.Rectangle(snail.sprite.x, snail.sprite.y, 5, 5);
+                            snail.sprite.filters = [outlineFilterBlue];
+
+
+                            players[i] = snail;
+                            players.direction = Math.floor(Math.random() * 2);
+
+                            if (!players[i].direction) {
+                                playerdir = -1;
+                                players[i].direction = -1;
+                                players[i].sprite.scale.x *= -1;
+                            }
+
+                            cannon = new PIXI.Sprite(textureCannon);
+                            cannon.x = snail.sprite.x;
+                            cannon.y = snail.sprite.y;
+                            cannon.anchor.set(0, 0.5);
+                            cannon.scale.x = 0.1;
+                            cannon.scale.y = 0.1;
+                            players[i].cannon = cannon;
+
+                            snailAnim = new PIXI.AnimatedSprite(snailSheet[i].animations["moving"]);
+                            snailAnim.anchor.set(0.5);
+                            snailAnim.animationSpeed = 0.25;
+                            snailAnim.scale.x = 0.3;
+                            snailAnim.scale.y = 0.3;
+                            snailAnim.x = app.renderer.width / 2;
+                            snailAnim.y = app.renderer.height / 2;
+                            snailAnim.filters = [outlineFilterBlue];
+                            snailAnim.visible = false;
+                            players[i].anim = snailAnim;
+
+
+                            playScene.addChild(players[i].anim);
+                            playScene.addChild(players[i].sprite);
+                            playScene.addChild(players[i].cannon);
                         }
 
-                        cannon = new PIXI.Sprite(textureCannon);
-                        cannon.x = snail.sprite.x;
-                        cannon.y = snail.sprite.y;
-                        cannon.anchor.set(0, 0.5);
-                        cannon.scale.x = 0.1;
-                        cannon.scale.y = 0.1;
 
 
-                        playScene.addChild(player.sprite);
-                        playScene.addChild(cannon);
+
 
                         dropTicker.add(deltaTime => drop(deltaTime));
 
+                        turnTicker.add(deltaTime => countdown(deltaTime));
 
                         chargeTicker.add(deltaTime => charge(deltaTime));
 
@@ -586,8 +640,6 @@
 
             vx = bullet.pow * Math.cos(bullet.angle) + bullet.wind * t / 10;
             vy = bullet.pow * Math.sin(bullet.angle) - bullet.g * t / 10;
-            vx *= 0.9;
-            vy *= 0.9;
 
             var b = new Bump();
             var hit = false;
@@ -653,26 +705,41 @@
         function drop(deltaTime) {
             console.log("Drop is in");
             var b = new Bump();
-            var hit = false;
-            point.some(function(Point, index) {
-                if (b.hitTestPoint({
-                            x: Point.x,
-                            y: Point.y
-                        },
-                        player.sprite,
-                        true)) {
-                    hit = true;
-                    return hit;
+            var stop = true,
+                hit = [false, false, false, false];
+            for (i = 0; i < numb; i++) {
+                point.some(function(Point, index) {
+                    if (b.hitTestPoint({
+                                x: Point.x,
+                                y: Point.y
+                            },
+                            players[i].sprite,
+                            true)) {
+                        hit[i] = true;
+                        return hit[i];
+                    }
+                });
+                if (!hit[i]) {
+                    players[i].sprite.y += dropSpeed;
+                    players[i].cannon.y += dropSpeed;
+                } else {
+                    players[i].anim.x = players[i].sprite.x;
+                    players[i].anim.y = players[i].sprite.y;
                 }
-            });
-            if (!hit) {
-                player.sprite.y += dropSpeed;
-                cannon.y += dropSpeed;
-            } else {
-
+            }
+            for (i = 0; i < numb; i++) {
+                stop *= hit[i];
+            }
+            if (stop) {
                 state = play;
                 dropTicker.stop();
             }
+            count = 0;
+        }
+
+        function countdown(deltaTime) {
+            console.log(count);
+            count += 1 / 60;
         }
 
         function coinDrop(deltaTime) {

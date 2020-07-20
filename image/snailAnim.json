@@ -1,0 +1,73 @@
+{
+    "frames": {
+
+        "snailAnim-0.png": {
+            "frame": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-1.png": {
+            "frame": { "x": 480, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-2.png": {
+            "frame": { "x": 960, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-3.png": {
+            "frame": { "x": 1440, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-4.png": {
+            "frame": { "x": 1920, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-5.png": {
+            "frame": { "x": 2400, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-6.png": {
+            "frame": { "x": 2880, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        },
+        "snailAnim-7.png": {
+            "frame": { "x": 3360, "y": 0, "w": 480, "h": 230 },
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": { "x": 0, "y": 0, "w": 480, "h": 230 },
+            "sourceSize": { "w": 480, "h": 230 }
+        }
+    },
+    "animations": {
+        "moving": ["snailAnim-0.png", "snailAnim-1.png", "snailAnim-2.png", "snailAnim-3.png", "snailAnim-4.png", "snailAnim-5.png", "snailAnim-6.png", "snailAnim-7.png"]
+    },
+    "meta": {
+        "app": "https://www.codeandweb.com/texturepacker",
+        "version": "1.0",
+        "image": "snailSheet.png",
+        "format": "RGBA8888",
+        "size": { "w": 4320, "h": 300 },
+        "scale": "1",
+        "smartupdate": "$TexturePacker:SmartUpdate:cef108c41bc34eddf50892d2ca959c7e:94a1bf84b90a2b89ccc3e08f0c507e5e:b9752fa0b32142ec9c615939cab4e2a7$"
+    }
+}
