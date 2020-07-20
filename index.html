@@ -18,6 +18,32 @@
         }
     </style>
     <script type="text/javascript">
+        const menuStyle = new PIXI.TextStyle({
+            dropShadow: true,
+            dropShadowAlpha: 0.3,
+            dropShadowBlur: 6,
+            fill: "#761e1e",
+            fontFamily: "\"Lucida Console\", Monaco, monospace",
+            fontSize: 60,
+            fontStyle: "italic",
+            fontVariant: "small-caps",
+            fontWeight: "bold",
+            stroke: "#0dff00",
+            strokeThickness: 1
+        });
+        const healthStyle = new PIXI.TextStyle({
+            dropShadowAlpha: 0.3,
+            dropShadowBlur: 6,
+            fill: "red",
+            fontFamily: "Comic Sans MS",
+            fontSize: 10,
+            fontVariant: "small-caps",
+            fontWeight: "bold",
+            stroke: "white",
+            strokeThickness: 1
+        });
+
+
         class Bullet {
             constructor() {
                 this.damageZone = 0;
@@ -35,7 +61,7 @@
         class Snail {
             constructor() {
                 this.direction = 0;
-                this.health = 100;
+                this.health = 4;
             }
         }
 
@@ -50,8 +76,7 @@
 
         var renderTextureSprite;
 
-        var snailAnim,
-            snailAnim = [];
+        var snailAnim;
 
         const brush = new PIXI.Graphics();
         brush.beginFill(0xFFFFFF);
@@ -65,6 +90,9 @@
 
         const dropTicker = new PIXI.ticker.Ticker();
         dropTicker.stop();
+
+        const fallTicker = new PIXI.ticker.Ticker();
+        fallTicker.stop();
 
         const chargeTicker = new PIXI.ticker.Ticker();
         chargeTicker.stop();
@@ -82,8 +110,10 @@
             count;
         // v0 - Power, g - Gravity, a - WindPower
         var v0, angle, g, a,
-            dropSpeed = 3,
+            moveSpeed = 2.5;
+        dropSpeed = 3,
             numb = 4,
+            left = 4,
             _vx = 0,
             _vy = 0;
 
@@ -103,8 +133,7 @@
 
         var nonTransPoint = [];
 
-        var cannon,
-            cannons = [];
+        var cannon;
 
         var coins = [];
 
@@ -129,14 +158,15 @@
         buttonFilter.matrix = _filter;
 
         // Outline filter for sprite
-        const outlineFilterBlue = new PIXI.filters.OutlineFilter(1, 0x000000);
+        const outlineFilterBlack = new PIXI.filters.OutlineFilter(1, 0x000000);
+        const outlineFilterP = new PIXI.filters.OutlineFilter(1, 0x00FF00);
 
         //Add the canvas that Pixi automatically created for you to the HTML document
         document.body.appendChild(app.view);
 
         // Resize the renderer to fit the window screen
 
-        app.renderer.resize(1366, 768);
+        app.renderer.resize(1376, 768);
 
 
 
@@ -159,7 +189,7 @@
             .add('menuBackground', "image/menuBackground.jpg")
             .add('selectionBackground', "image/selectionBackground.jpg")
             .add('playBackground', "image/playBackground.jpg")
-            .add('platform', "image/platform.png")
+            .add('platform', "image/gunSnail.png")
             .add('progressBar', "image/ProgressBar.png")
             .add('cannon', "image/Cannon.png")
             .on('progress', loadProgressHandler);
@@ -242,6 +272,7 @@
             renderTextureSprite = new PIXI.Sprite(renderTexture);
 
             platform = new PIXI.Sprite(resources.platform.texture);
+            platform.filters = [outlineFilterP];
             progressBar = new PIXI.Sprite(resources.progressBar.texture);
 
             progressBar.scale.set(0.5, 0.5);
@@ -274,10 +305,8 @@
 
             // Acquire black points array from the pixels array
             for (i = 0; i < pixels.length / 4; i++) {
-                if (pixels[4 * i] == 0 && pixels[4 * i + 1] == 0 && pixels[4 * i + 2] == 0 && pixels[4 * i + 3] > 0) {
+                if (pixels[4 * i] == 0 && pixels[4 * i + 1] == 255 && pixels[4 * i + 2] == 0 && pixels[4 * i + 3] > 0) {
                     black[i] = 1;
-                } else if (pixels[4 * i + 3] > 0) {
-                    black[i] = 2;
                 } else black[i] = 0;
             }
 
@@ -293,11 +322,11 @@
                 }
             }
 
-
             playScene.addChild(rectangle);
             playScene.addChild(progressBar);
 
             menuButtons();
+            menuText();
 
             playScene.addChild(background3);
 
@@ -330,23 +359,51 @@
         }
 
         function play(delta) {
-            cannon.angle += _vy;
-            if (cannon.angle < -360) {
-                cannon.angle += 360;
+            player.cannon.angle += _vy;
+            if (player.cannon.angle < -360) {
+                player.cannon.angle += 360;
             }
-            if (cannon.angle > 360) {
-                cannon.angle -= 360;
+            if (player.cannon.angle > 360) {
+                player.cannon.angle -= 360;
             }
 
 
             player.sprite.x += _vx;
-            cannon.x += _vx;
-            snailAnim.x += _vx;
+            player.cannon.x += _vx;
+            player.hText.x += _vx;
+            player.anim.x += _vx;
+
             if (player.direction != playerdir) {
                 player.direction *= -1;
                 player.sprite.scale.x *= -1;
-                snailAnim.scale.x *= -1;
+                player.anim.scale.x *= -1;
             }
+            var b = new Bump();
+            var hit = false;
+
+            point.some(function(Point, index) {
+
+                if (b.hitTestPoint({
+                            x: Point.x,
+                            y: Point.y
+                        },
+                        player.sprite,
+                        true
+                    )) {
+                    hit = true;
+                    return hit;
+                }
+            });
+            if (!hit) {
+                fallTicker.start();
+            }
+
+        }
+
+
+
+        function idle(delta) {
+
         }
 
         function menu(delta) {
@@ -376,100 +433,6 @@
                 case "Play":
                     {
 
-                        var lastKeyUpAt;
-                        //Capture the keyboard arrow keys
-                        let left = keyboard(37),
-                            up = keyboard(38),
-                            right = keyboard(39),
-                            down = keyboard(40);
-
-                        let space = keyboard(32);
-
-                        //Left arrow key `press` method
-                        left.press = () => {
-                            //Change the cat's velocity when the key is pressed
-                            if (!right.isDown) {
-                                player.sprite.visible = false;
-                                snailAnim.visible = true;
-                            }
-                            snailAnim.play();
-                            playerdir = -1;
-                            _vx = -5;
-                            _vy = 0;
-                        };
-
-                        //Left arrow key `release` method
-                        left.release = () => {
-                            //If the left arrow has been released, and the right arrow isn't down,
-                            //and the cat isn't moving vertically:
-                            //Stop the cat
-                            player.sprite.visible = true;
-                            snailAnim.visible = false;
-                            snailAnim.stop();
-                            if (!right.isDown && _vy === 0) {
-                                _vx = 0;
-                            }
-                        };
-
-                        //Up
-                        up.press = () => {
-                            _vy = -5;
-                        };
-                        up.release = () => {
-                            if (!down.isDown) {
-                                _vy = 0;
-                            }
-                        };
-
-                        //Right
-                        right.press = () => {
-                            if (!left.isDown) {
-                                player.sprite.visible = false;
-                                snailAnim.visible = true;
-                            }
-                            snailAnim.play();
-                            playerdir = 1;
-                            _vx = 5;
-                            _vy = 0;
-                        };
-                        right.release = () => {
-                            player.sprite.visible = true;
-                            snailAnim.visible = false;
-                            snailAnim.stop();
-                            if (!left.isDown && _vy === 0) {
-                                _vx = 0;
-                            }
-                        };
-
-                        //Down
-                        down.press = () => {
-                            _vy = 5;
-                        };
-                        down.release = () => {
-                            if (!up.isDown) {
-                                _vy = 0;
-                            }
-                        };
-
-                        //Space
-                        space.press = () => {
-                            chargeTicker.start();
-                            var angle2 = cannon.angle;
-                            // shootBullet((cannon.width) * Math.cos(Math.PI * angle2 / 180) + cannon.x, ((cannon.width) * Math.sin(Math.PI * angle2 / 180) + cannon.y), 0, 30, -angle2);
-                        };
-
-                        space.release = () => {
-                            chargeTicker.stop();
-                            var angle2 = cannon.angle;
-                            shootBullet((cannon.width) * Math.cos(Math.PI * angle2 / 180) + cannon.x, ((cannon.width) * Math.sin(Math.PI * angle2 / 180) + cannon.y), 0, barWidth / 10, -angle2);
-                            barWidth = 0.1;
-
-                        };
-
-
-
-                        bulletTicker.add(deltaTime => flyout(deltaTime, spriteBullet, bullet));
-
                         // var cannon = new PIXI.Sprite;
 
                         for (i = 0; i < numb; i++) {
@@ -478,50 +441,73 @@
                             snail.sprite = new PIXI.Sprite(textureSnail[i]);
                             snail.sprite.x = Math.random() * app.renderer.width;
 
-                            snail.sprite.scale.x = 0.3;
-                            snail.sprite.scale.y = 0.3;
+                            snail.sprite.scale.x = 0.15;
+                            snail.sprite.scale.y = 0.15;
                             snail.sprite.anchor.set(0.5);
 
-                            snail.hitArea = new PIXI.Rectangle(snail.sprite.x, snail.sprite.y, 5, 5);
-                            snail.sprite.filters = [outlineFilterBlue];
+
+                            snail.sprite.hitArea = new PIXI.Circle(0, 0, 10);
+                            snail.sprite.filters = [outlineFilterBlack];
 
 
                             players[i] = snail;
-                            players.direction = Math.floor(Math.random() * 2);
+                            players[i].direction = Math.floor(Math.random() * 2);
 
-                            if (!players[i].direction) {
-                                playerdir = -1;
-                                players[i].direction = -1;
-                                players[i].sprite.scale.x *= -1;
-                            }
 
                             cannon = new PIXI.Sprite(textureCannon);
                             cannon.x = snail.sprite.x;
                             cannon.y = snail.sprite.y;
                             cannon.anchor.set(0, 0.5);
-                            cannon.scale.x = 0.1;
-                            cannon.scale.y = 0.1;
+                            cannon.scale.x = 0.05;
+                            cannon.scale.y = 0.05;
+                            cannon.filters = [outlineFilterBlack];
                             players[i].cannon = cannon;
+
 
                             snailAnim = new PIXI.AnimatedSprite(snailSheet[i].animations["moving"]);
                             snailAnim.anchor.set(0.5);
                             snailAnim.animationSpeed = 0.25;
-                            snailAnim.scale.x = 0.3;
-                            snailAnim.scale.y = 0.3;
+                            snailAnim.scale.x = 0.15;
+                            snailAnim.scale.y = 0.15;
                             snailAnim.x = app.renderer.width / 2;
                             snailAnim.y = app.renderer.height / 2;
-                            snailAnim.filters = [outlineFilterBlue];
+                            snailAnim.filters = [outlineFilterBlack];
                             snailAnim.visible = false;
                             players[i].anim = snailAnim;
 
+                            healthText = new PIXI.Text('', healthStyle);
+                            healthText.anchor.set(0.5);
+                            healthText.x = snail.sprite.x;
+                            healthText.y = snail.sprite.y - snail.sprite.height;
+                            healthText.visible = true;
+
+                            players[i].hText = healthText;
+                            players[i].hText.text = players[i].health;
+
+
+                            if (!players[i].direction) {
+                                playerdir = -1;
+                                players[i].direction = -1;
+                                players[i].sprite.scale.x *= -1;
+                                players[i].anim.scale.x *= -1;
+                            }
 
                             playScene.addChild(players[i].anim);
                             playScene.addChild(players[i].sprite);
                             playScene.addChild(players[i].cannon);
+                            playScene.addChild(players[i].hText);
+
+
+                        }
+                        for (i = 0; i < numb; i++) {
+                            if (i + 1 < numb) {
+                                players[i].next = players[i + 1];
+                            } else {
+                                players[i].next = 0;
+                            }
                         }
 
-
-
+                        player = players[0];
 
 
                         dropTicker.add(deltaTime => drop(deltaTime));
@@ -529,6 +515,8 @@
                         turnTicker.add(deltaTime => countdown(deltaTime));
 
                         chargeTicker.add(deltaTime => charge(deltaTime));
+
+                        fallTicker.add(deltaTime => fall(deltaTime));
 
                         state = switchPlay;
 
@@ -564,14 +552,14 @@
                 spriteBullet.anchor.set(0.5);
                 spriteBullet.x = x;
                 spriteBullet.y = y;
-                spriteBullet.scale.x = 0.2;
-                spriteBullet.scale.y = 0.2;
+                spriteBullet.scale.x = 0.1;
+                spriteBullet.scale.y = 0.1;
                 playScene.addChild(spriteBullet);
                 t = 0;
                 bullet.pow = pow,
                     bullet.angle = Math.PI / 180 * angle,
                     bullet.g = 10;
-                bullet.wind = document.getElementById("wind").value / 2;
+                bullet.wind = 0;
 
                 bulletTicker.start();
             }
@@ -582,43 +570,6 @@
         };
 
 
-
-        function onButtonDown() {
-            this.isDown = true;
-            this.filters = null;
-
-        }
-
-        function onButtonUp() {
-            this.isDown = false;
-            if (this.isOver) {
-                this.filters = [buttonFilter];
-            } else {
-
-            }
-
-        }
-
-        function onButtonOver() {
-            this.isOver = true;
-            if (this.isDown) {
-                return;
-            }
-            // Adjust buttonOver texture
-            this.filters = [buttonFilter];
-
-            buttonOverAudio.play();
-        }
-
-        function onButtonOut() {
-            this.isOver = false;
-            if (this.isDown) {
-                return;
-            }
-            // Adjust buttonOut texture
-            this.filters = null;
-
-        }
 
         function charge(deltaTime) {
 
@@ -642,7 +593,8 @@
             vy = bullet.pow * Math.sin(bullet.angle) - bullet.g * t / 10;
 
             var b = new Bump();
-            var hit = false;
+            var hit = false,
+                playerHit = false;
 
             t += 0.2;
 
@@ -660,6 +612,7 @@
                             spriteBullet,
                             true
                         )) {
+
                         explosion = new PIXI.AnimatedSprite(sheet.animations["explosion"]);
                         explosion.anchor.set(0.5);
                         explosion.visible = true;
@@ -667,15 +620,33 @@
                         explosion.y = spriteBullet.y;
                         explosion.loop = false;
                         explosion.animationSpeed = 0.5;
+                        explosion.circular = true;
 
+                        for (i = 0; i < numb; i++) {
+                            if (b.hit(players[i].sprite, explosion)) {
+                                players[i].health--;
+                                players[i].hText.text = players[i].health;
+
+                                playerHit = true;
+
+                            }
+                        }
 
                         playScene.addChild(explosion);
                         explosion.play();
                         console.log(explosion.x, explosion.y);
-                        destroy(spriteBullet.x, spriteBullet.y);
+
 
 
                         explosion.onComplete = function() {
+                            setTimeout(() => {
+                                app.ticker.stop();
+                                setTimeout(() => {
+
+                                    changeTurn();
+                                }, 2000);
+                            }, 500);
+
                             playScene.removeChild(explosion);
                             explosion.destroy();
                         }
@@ -688,6 +659,7 @@
 
                 });
             }
+
             if (!hit) {
                 spriteBullet.x += vx;
                 spriteBullet.y -= vy;
@@ -703,42 +675,231 @@
         }
 
         function drop(deltaTime) {
-            console.log("Drop is in");
+
             var b = new Bump();
             var stop = true,
-                hit = [false, false, false, false];
-            for (i = 0; i < numb; i++) {
-                point.some(function(Point, index) {
-                    if (b.hitTestPoint({
-                                x: Point.x,
-                                y: Point.y
-                            },
-                            players[i].sprite,
-                            true)) {
-                        hit[i] = true;
-                        return hit[i];
-                    }
-                });
-                if (!hit[i]) {
-                    players[i].sprite.y += dropSpeed;
-                    players[i].cannon.y += dropSpeed;
-                } else {
-                    players[i].anim.x = players[i].sprite.x;
-                    players[i].anim.y = players[i].sprite.y;
+                hit = false;
+
+            point.some(function(Point, index) {
+
+                if (b.hitTestPoint({
+                            x: Point.x,
+                            y: Point.y
+                        },
+                        player.sprite,
+                        true
+                    )) {
+                    hit = true;
+                    return hit;
                 }
+            });
+            if (player.sprite.y > app.renderer.height) {
+                console.log("Dead by falling");
+                player.health = 0;
+                left--;
+                playScene.removeChild(player.sprite);
+                playScene.removeChild(player.anim);
+                playScene.removeChild(player.cannon);
+                playScene.removeChild(player.hText);
+                hit = true;
             }
-            for (i = 0; i < numb; i++) {
-                stop *= hit[i];
+            if (!hit) {
+                player.sprite.y += dropSpeed;
+                player.cannon.y += dropSpeed;
+                player.hText.y += dropSpeed;
+
+            } else {
+                player.anim.x = player.sprite.x;
+                player.anim.y = player.sprite.y;
+                if (player.next == 0) {
+                    init();
+                    dropTicker.stop();
+                    state = play;
+                } else player = player.next;
             }
-            if (stop) {
-                state = play;
-                dropTicker.stop();
-            }
+
+
+
             count = 0;
+            turnTicker.start();
+        }
+
+        function fall(deltaTime) {
+            state = idle;
+            var b = new Bump();
+            var hit = false,
+                dead = false;
+
+
+            point.some(function(Point, index) {
+
+                if (b.hitTestPoint({
+                            x: Point.x,
+                            y: Point.y
+                        },
+                        player.sprite,
+                        true
+                    )) {
+                    hit = true;
+                    return hit;
+                }
+            });
+            if (player.sprite.y > app.renderer.height) {
+                console.log("Dead by falling");
+                player.health = 0;
+                left--;
+                playScene.removeChild(player.sprite);
+                playScene.removeChild(player.anim);
+                playScene.removeChild(player.cannon);
+                playScene.removeChild(player.hText);
+                hit = true;
+                dead = true;
+            }
+            if (!hit) {
+                player.sprite.y += dropSpeed;
+                player.cannon.y += dropSpeed;
+                player.hText.y += dropSpeed;
+
+            } else {
+                player.anim.x = player.sprite.x;
+                player.anim.y = player.sprite.y;
+                fallTicker.stop();
+                state = play;
+
+            }
+            if (dead) {
+                changeTurn();
+                fallTicker.stop();
+                state = play;
+            }
+        }
+
+
+        function init() {
+
+            var lastKeyUpAt;
+            //Capture the keyboard arrow keys
+            let left = keyboard(37),
+                up = keyboard(38),
+                right = keyboard(39),
+                down = keyboard(40);
+
+            let space = keyboard(32);
+
+            //Left arrow key `press` method
+            left.press = () => {
+                //Change the cat's velocity when the key is pressed
+                if (!right.isDown) {
+                    player.sprite.visible = false;
+                    player.anim.visible = true;
+                }
+                player.anim.play();
+                playerdir = -1;
+                _vx = -moveSpeed;
+                _vy = 0;
+            };
+
+            //Left arrow key `release` method
+            left.release = () => {
+                //If the left arrow has been released, and the right arrow isn't down,
+                //and the cat isn't moving vertically:
+                //Stop the cat
+                player.sprite.visible = true;
+                player.anim.visible = false;
+                player.anim.stop();
+                if (!right.isDown && _vy === 0) {
+                    _vx = 0;
+                }
+            };
+
+            //Up
+            up.press = () => {
+                _vy = -5;
+            };
+            up.release = () => {
+                if (!down.isDown) {
+                    _vy = 0;
+                }
+            };
+
+            //Right
+            right.press = () => {
+                if (!left.isDown) {
+                    player.sprite.visible = false;
+                    player.anim.visible = true;
+                }
+                player.anim.play();
+                playerdir = 1;
+                _vx = moveSpeed;
+                _vy = 0;
+            };
+            right.release = () => {
+                player.sprite.visible = true;
+                player.anim.visible = false;
+                player.anim.stop();
+                if (!left.isDown && _vy === 0) {
+                    _vx = 0;
+                }
+            };
+
+            //Down
+            down.press = () => {
+                _vy = 5;
+            };
+            down.release = () => {
+                if (!up.isDown) {
+                    _vy = 0;
+                }
+            };
+
+            //Space
+            space.press = () => {
+                state = idle;
+                chargeTicker.start();
+                var angle2 = player.cannon.angle;
+                // shootBullet((cannon.width) * Math.cos(Math.PI * angle2 / 180) + cannon.x, ((cannon.width) * Math.sin(Math.PI * angle2 / 180) + cannon.y), 0, 30, -angle2);
+            };
+
+            space.release = () => {
+                chargeTicker.stop();
+                var angle2 = player.cannon.angle;
+                shootBullet((player.cannon.width) * Math.cos(Math.PI * angle2 / 180) + player.cannon.x, ((player.cannon.width) * Math.sin(Math.PI * angle2 / 180) + player.cannon.y), 0, barWidth / 10, -angle2);
+                barWidth = 0.1;
+
+            };
+
+
+
+            bulletTicker.add(deltaTime => flyout(deltaTime, spriteBullet, bullet));
+
+        }
+
+        function changeTurn() {
+            if (left < 2) {
+                console.log("Win");
+            }
+            state = play;
+            player.sprite.visible = true;
+            snailAnim.visible = false;
+            app.ticker.start();
+            if (player.next != 0) {
+                console.log("Changed!");
+                player = player.next;
+
+            } else {
+                console.log("Changed!");
+                for (i = 0; i < numb; i++) {
+                    if (players[i].health > 0) {
+                        player = players[i];
+                    }
+                }
+
+            }
+
         }
 
         function countdown(deltaTime) {
-            console.log(count);
+
             count += 1 / 60;
         }
 
@@ -780,6 +941,15 @@
 
         }
 
+        function menuText() {
+
+            const text = new PIXI.Text('Welcome to Gunsnail', menuStyle);
+            text.anchor.set(0.5);
+            text.x = app.renderer.width / 2;
+            text.y = 0.7 * app.renderer.height / 5;
+            menuScene.addChild(text);
+        }
+
         function menuButtons() {
             // Create name array to specify buttons
             var name = [
@@ -790,9 +960,9 @@
 
             // Create position array for buttons
             var buttonPositions = [
-                app.renderer.width / 2, app.renderer.height / 5,
-                app.renderer.width / 2, 2 * app.renderer.height / 5,
-                app.renderer.width / 2, 3 * app.renderer.height / 5
+                app.renderer.width / 2, 1.5 * app.renderer.height / 5,
+                app.renderer.width / 2, 2.5 * app.renderer.height / 5,
+                app.renderer.width / 2, 3.5 * app.renderer.height / 5
             ];
             for (var i = 0; i < 3; i++) {
                 var button = new PIXI.Sprite(textureButton[i]);
@@ -837,6 +1007,43 @@
                 buttons.push(button);
 
 
+
+                function onButtonDown() {
+                    this.isDown = true;
+                    this.filters = null;
+
+                }
+
+                function onButtonUp() {
+                    this.isDown = false;
+                    if (this.isOver) {
+                        this.filters = [buttonFilter];
+                    } else {
+
+                    }
+
+                }
+
+                function onButtonOver() {
+                    this.isOver = true;
+                    if (this.isDown) {
+                        return;
+                    }
+                    // Adjust buttonOver texture
+                    this.filters = [buttonFilter];
+
+                    buttonOverAudio.play();
+                }
+
+                function onButtonOut() {
+                    this.isOver = false;
+                    if (this.isDown) {
+                        return;
+                    }
+                    // Adjust buttonOut texture
+                    this.filters = null;
+
+                }
             }
         }
 
