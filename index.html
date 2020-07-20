@@ -24,7 +24,7 @@
             dropShadowBlur: 6,
             fill: "#761e1e",
             fontFamily: "\"Lucida Console\", Monaco, monospace",
-            fontSize: 60,
+            fontSize: 80,
             fontStyle: "italic",
             fontVariant: "small-caps",
             fontWeight: "bold",
@@ -42,7 +42,49 @@
             stroke: "white",
             strokeThickness: 1
         });
+        const turnStyle = new PIXI.TextStyle({
+            dropShadow: true,
+            dropShadowAlpha: 0.3,
+            dropShadowBlur: 2,
+            dropShadowDistance: 8,
+            fill: "red",
+            fontFamily: "\"Comic Sans MS\", cursive, sans-serif",
+            fontSize: 20,
+            fontVariant: "small-caps",
+            fontWeight: "bold",
+            stroke: "white",
+            strokeThickness: 1
+        });
+        const victoryStyle = new PIXI.TextStyle({
+            dropShadow: true,
+            dropShadowAlpha: 0.6,
+            dropShadowAngle: 0.7,
+            dropShadowBlur: 1,
+            dropShadowDistance: 6,
+            fill: [
+                "red",
+                "#ffa8a8",
+                "#d25151"
+            ],
+            fontFamily: "Georgia",
+            fontSize: 100,
+            fontWeight: 600,
+            stroke: "white",
+            strokeThickness: 1
+        });
+        const numbStyle = new PIXI.TextStyle({
+            fill: [
+                "black",
+                "#e60000"
+            ],
+            fontFamily: "Georgia",
+            fontSize: 80,
+            fontWeight: 600,
+            stroke: "white",
+            strokeThickness: 1
+        });
 
+        const numbText = new PIXI.Text('', numbStyle);
 
         class Bullet {
             constructor() {
@@ -111,7 +153,7 @@
         // v0 - Power, g - Gravity, a - WindPower
         var v0, angle, g, a,
             moveSpeed = 2.5;
-        dropSpeed = 3,
+        dropSpeed = 3.5,
             numb = 4,
             left = 4,
             _vx = 0,
@@ -154,6 +196,8 @@
             0, 0, 0, 1, 0
         ];
 
+        var disable = false;
+
         var buttonFilter = new PIXI.filters.ColorMatrixFilter();
         buttonFilter.matrix = _filter;
 
@@ -175,6 +219,7 @@
         var textureSnail = [];
         var textureButton;
         var textureBullet = PIXI.Texture.fromImage('image/Bullet.png');
+        var textureArrowUp;
         var progressBar;
         var textureCannon;
 
@@ -192,6 +237,7 @@
             .add('platform', "image/gunSnail.png")
             .add('progressBar', "image/ProgressBar.png")
             .add('cannon', "image/Cannon.png")
+            .add('arrowup', "image/ArrowUp.png")
             .on('progress', loadProgressHandler);
 
         function loadProgressHandler() {
@@ -225,6 +271,7 @@
                 snailSheet[3].textures["snailAnim4-0.png"]
             ];
 
+            textureArrow = resources.arrowup.texture;
             textureCannon = resources.cannon.texture;
             console.log("Texture Loaded!");
 
@@ -273,8 +320,8 @@
 
             platform = new PIXI.Sprite(resources.platform.texture);
             platform.filters = [outlineFilterP];
-            progressBar = new PIXI.Sprite(resources.progressBar.texture);
 
+            progressBar = new PIXI.Sprite(resources.progressBar.texture);
             progressBar.scale.set(0.5, 0.5);
             progressBar.x = 50;
             progressBar.y = 50;
@@ -283,7 +330,7 @@
             graphics.drawRect(progressBar.x, progressBar.y, 0, progressBar.height);
             graphics.endFill();
 
-
+            //Draw the progress bar border and container
             rectangle.beginFill(0xffffff);
             // set the line style to have a width of 5 and set the color to red
             rectangle.lineStyle(5, 0xFF0000);
@@ -325,6 +372,8 @@
             playScene.addChild(rectangle);
             playScene.addChild(progressBar);
 
+
+
             menuButtons();
             menuText();
 
@@ -356,6 +405,41 @@
                 dropTicker.start();
 
             }
+        }
+
+        function switchMenu(delta) {
+            //Switch the scene from play to menu
+            if (playScene.alpha > 0) {
+                playScene.alpha -= 0.1;
+            } else if (menuScene.alpha < 1) {
+                menuScene.visible = true;
+                playScene.visible = false;
+                menuScene.alpha += 0.1;
+            }
+        }
+
+        function switchSelection(delta) {
+            //Switch the scene from menu to selection
+            if (menuScene.alpha > 0) {
+                menuScene.alpha -= 0.1;
+            } else if (selectionScene.alpha < 1) {
+                selectionScene.visible = true;
+                menuScene.visible = false;
+                selectionScene.alpha += 0.1;
+            } else state = selection;
+
+        }
+
+        function switchOut(delta) {
+            //Switch the scene from selection to menu
+            if (selection.alpha > 0) {
+                selectionScene.alpha -= 0.1;
+            } else if (menuScene.alpha < 1) {
+                menuScene.visible = true;
+                selectionScene.visible = false;
+                menuScene.alpha += 0.1;
+            } else state = menu;
+
         }
 
         function play(delta) {
@@ -394,13 +478,15 @@
                     return hit;
                 }
             });
-            if (!hit) {
+            if (!hit && player.health > 0) {
                 fallTicker.start();
             }
 
         }
 
+        function victory(delta) {
 
+        }
 
         function idle(delta) {
 
@@ -413,19 +499,8 @@
         }
 
         function selection(delta) {
-            if (menuScene.alpha > 0) {
-                menuScene.alpha -= 0.01;
-            } else if (selectionScene.alpha < 1) {
-                menuScene.visible = false;
-                selectionScene.visible = true;
-                selectionScene.alpha += 0.1;
-            }
+            numbText.text = numb;
         }
-
-
-
-
-
 
         // Do something when a button is clicked
         var buttonClicked = function() {
@@ -439,7 +514,7 @@
 
                             snail = new Snail();
                             snail.sprite = new PIXI.Sprite(textureSnail[i]);
-                            snail.sprite.x = Math.random() * app.renderer.width;
+                            snail.sprite.x = Math.random() * (app.renderer.width - 200);
 
                             snail.sprite.scale.x = 0.15;
                             snail.sprite.scale.y = 0.15;
@@ -509,7 +584,6 @@
 
                         player = players[0];
 
-
                         dropTicker.add(deltaTime => drop(deltaTime));
 
                         turnTicker.add(deltaTime => countdown(deltaTime));
@@ -524,7 +598,117 @@
                     }
                 case "Options":
                     {
+                        //Draw a container for number of players
+                        rectangle = new PIXI.Graphics();
+                        rectangle.beginFill(0xffffff);
+                        // set the line style to have a width of 5 and set the color to red
+                        rectangle.lineStyle(5, 0xFF0000);
+                        // draw a rectangle
+                        rectangle.drawRect(app.renderer.width / 2 - 150, app.renderer.height / 2 - 50, 300, 100);
+                        rectangle.endFill();
 
+                        //Arrows for selecting number of players
+                        arrowUp = new PIXI.Sprite(textureArrow);
+                        arrowUp.anchor.set(0.5);
+                        arrowUp.x = app.renderer.width / 2 + 200;
+                        arrowUp.y = app.renderer.height / 2 - 30;
+                        arrowUp.scale.x = 0.3;
+                        arrowUp.scale.y = 0.3;
+
+
+                        arrowDown = new PIXI.Sprite(textureArrow);
+                        arrowDown.anchor.set(0.5);
+                        arrowDown.x = app.renderer.width / 2 + 200;
+                        arrowDown.y = app.renderer.height / 2 + 30;
+                        arrowDown.scale.x = 0.3;
+                        arrowDown.scale.y = 0.3;
+                        arrowDown.angle = 180;
+
+                        arrowUp.interactive = true;
+                        arrowDown.interactive = true;
+
+                        arrowUp
+                        // set the mousedown and touchstart callback...
+                        .on('mousedown', onButtonDown)
+                        .on('touchstart', onButtonDown)
+
+                        // set the mouseup and touchend callback...
+                        .on('mouseup', onButtonUp)
+                        .on('touchend', onButtonUp)
+                        .on('mouseupoutside', onButtonUp)
+                        .on('touchendoutside', onButtonUp)
+
+                        // set the mouseover callback...
+                        .on('mouseover', onButtonOver)
+
+                        // set the mouseout callback...
+                        .on('mouseout', onButtonOut)
+
+                        arrowUp.tap = upNumber;
+                        arrowUp.click = upNumber;
+
+                        arrowDown
+                        // set the mousedown and touchstart callback...
+                        .on('mousedown', onButtonDown)
+                        .on('touchstart', onButtonDown)
+
+                        // set the mouseup and touchend callback...
+                        .on('mouseup', onButtonUp)
+                        .on('touchend', onButtonUp)
+                        .on('mouseupoutside', onButtonUp)
+                        .on('touchendoutside', onButtonUp)
+
+                        // set the mouseover callback...
+                        .on('mouseover', onButtonOver)
+
+                        // set the mouseout callback...
+                        .on('mouseout', onButtonOut)
+
+                        arrowDown.tap = downNumber;
+                        arrowDown.click = downNumber;
+
+                        var exit = new PIXI.Sprite(textureButton[2]);
+
+                        exit.buttonMode = true;
+                        exit.anchor.set(0.5);
+                        exit.x = 150;
+                        exit.y = app.renderer.height - 75;
+
+                        exit.interactive = true;
+
+                        exit // set the mousedown and touchstart callback...
+                        .on('mousedown', onButtonDown)
+                        .on('touchstart', onButtonDown)
+
+                        // set the mouseup and touchend callback...
+                        .on('mouseup', onButtonUp)
+                        .on('touchend', onButtonUp)
+                        .on('mouseupoutside', onButtonUp)
+                        .on('touchendoutside', onButtonUp)
+
+                        // set the mouseover callback...
+                        .on('mouseover', onButtonOver)
+
+                        // set the mouseout callback...
+                        .on('mouseout', onButtonOut)
+
+                        exit.tap = Exit;
+                        exit.click = Exit;
+
+                        numbText.x = app.renderer.width / 2 + 90;
+                        numbText.y = app.renderer.height / 2 - 50;
+
+
+
+                        selectionScene.addChild(rectangle);
+
+                        selectionScene.addChild(arrowDown);
+                        selectionScene.addChild(arrowUp);
+                        selectionScene.addChild(numbText);
+
+                        selectionScene.addChild(exit);
+
+                        state = switchSelection;
 
                         break;
                     }
@@ -534,7 +718,7 @@
                         //   button.interactive = false;
                         //});
 
-                        charge();
+
                     }
             }
         }
@@ -570,7 +754,6 @@
         };
 
 
-
         function charge(deltaTime) {
 
             if (barWidth >= progressBar.width || barWidth <= 0) {
@@ -598,11 +781,19 @@
 
             t += 0.2;
 
-            if (spriteBullet.x > app.renderer.width || spriteBullet.y > app.renderer.height ||
-                spriteBullet.x < -spriteBullet.width / 2 || spriteBullet.y < -spriteBullet.height / 2) {
+            if (spriteBullet.x > app.renderer.width || spriteBullet.y > app.renderer.height) {
+                setTimeout(() => {
+                    app.ticker.stop();
+                    setTimeout(() => {
+
+                        changeTurn();
+                    }, 2000);
+                }, 500);
                 playScene.removeChild(spriteBullet);
                 spriteBullet.destroy();
                 bulletTicker.stop();
+                hit = true;
+
             } else {
                 point.some(function(Point, index) {
                     if (b.hitTestPoint({
@@ -625,7 +816,17 @@
                         for (i = 0; i < numb; i++) {
                             if (b.hit(players[i].sprite, explosion)) {
                                 players[i].health--;
+
                                 players[i].hText.text = players[i].health;
+
+                                if (players[i].health < 1) {
+                                    players[i].sprite.visible = false;
+                                    playScene.removeChild(players[i].sprite);
+                                    playScene.removeChild(players[i].cannon);
+                                    playScene.removeChild(players[i].anim);
+                                    playScene.removeChild(players[i].hText);
+                                    left--;
+                                }
 
                                 playerHit = true;
 
@@ -634,7 +835,7 @@
 
                         playScene.addChild(explosion);
                         explosion.play();
-                        console.log(explosion.x, explosion.y);
+
 
 
 
@@ -714,10 +915,22 @@
                 if (player.next == 0) {
                     init();
                     dropTicker.stop();
-                    state = play;
+                    if (numb < 2) {
+                        console.log("WIN");
+
+                        const victoryText = new PIXI.Text('PLAYER ' + i + ' VICTORY !!!', victoryStyle);
+
+
+                        victoryText.x = app.renderer.width / 2;
+                        victoryText.y = app.renderer.height / 2;
+                        victoryText.anchor.set(0.5);
+                        playScene.addChild(victoryText);
+
+                        state = victory;
+                    } else
+                        state = play;
                 } else player = player.next;
             }
-
 
 
             count = 0;
@@ -725,6 +938,8 @@
         }
 
         function fall(deltaTime) {
+
+            disable = true;
             state = idle;
             var b = new Bump();
             var hit = false,
@@ -755,23 +970,27 @@
                 hit = true;
                 dead = true;
             }
+            if (dead) {
+                disable = false;
+                changeTurn();
+                fallTicker.stop();
+                state = play;
+            }
             if (!hit) {
                 player.sprite.y += dropSpeed;
                 player.cannon.y += dropSpeed;
                 player.hText.y += dropSpeed;
 
             } else {
+
+                disable = false;
                 player.anim.x = player.sprite.x;
                 player.anim.y = player.sprite.y;
                 fallTicker.stop();
                 state = play;
 
             }
-            if (dead) {
-                changeTurn();
-                fallTicker.stop();
-                state = play;
-            }
+
         }
 
 
@@ -782,12 +1001,15 @@
             let left = keyboard(37),
                 up = keyboard(38),
                 right = keyboard(39),
-                down = keyboard(40);
-
-            let space = keyboard(32);
+                down = keyboard(40),
+                space = keyboard(32),
+                esc = keyboard(27);
 
             //Left arrow key `press` method
             left.press = () => {
+                if (disable) {
+                    return;
+                }
                 //Change the cat's velocity when the key is pressed
                 if (!right.isDown) {
                     player.sprite.visible = false;
@@ -824,6 +1046,9 @@
 
             //Right
             right.press = () => {
+                if (disable) {
+                    return;
+                }
                 if (!left.isDown) {
                     player.sprite.visible = false;
                     player.anim.visible = true;
@@ -864,38 +1089,73 @@
                 chargeTicker.stop();
                 var angle2 = player.cannon.angle;
                 shootBullet((player.cannon.width) * Math.cos(Math.PI * angle2 / 180) + player.cannon.x, ((player.cannon.width) * Math.sin(Math.PI * angle2 / 180) + player.cannon.y), 0, barWidth / 10, -angle2);
-                barWidth = 0.1;
-
             };
 
+            esc.press = () => {
 
+            }
+
+            esc.release = () => {
+                state = switchMenu;
+            }
 
             bulletTicker.add(deltaTime => flyout(deltaTime, spriteBullet, bullet));
 
         }
 
         function changeTurn() {
+            let victoryText;
             if (left < 2) {
-                console.log("Win");
+                console.log("WIN");
+                for (i = 0; i < numb; i++) {
+                    if (players[i].health > 0) {
+                        i++;
+                        victoryText = new PIXI.Text('PLAYER ' + i + ' VICTORY !!!', victoryStyle);
+                    }
+                }
+
+                victoryText.x = app.renderer.width / 2;
+                victoryText.y = app.renderer.height / 2;
+                victoryText.anchor.set(0.5);
+                playScene.addChild(victoryText);
+
+                state = victory;
+                return;
             }
+            const turnText = new PIXI.Text('Change Turn!', turnStyle);
+            setTimeout(() => {
+                turnText.visible = false;
+            }, 2000);
+
+            turnText.x = 50;
+            turnText.y = 20;
+            turnText.visible.true;
+            playScene.addChild(turnText);
             state = play;
             player.sprite.visible = true;
             snailAnim.visible = false;
             app.ticker.start();
-            if (player.next != 0) {
-                console.log("Changed!");
+            if (player.next != 0 && player.next.health > 0) {
+                console.log("Changed next!");
                 player = player.next;
 
             } else {
-                console.log("Changed!");
+                console.log("Changed another!");
                 for (i = 0; i < numb; i++) {
                     if (players[i].health > 0) {
                         player = players[i];
+                        break;
                     }
                 }
 
             }
+            barWidth = 0.1;
+            graphics = new PIXI.Graphics();
+            graphics.beginFill(0x00000);
+            graphics.drawRect(progressBar.x, progressBar.y, barWidth, progressBar.height);
+            graphics.endFill();
 
+            progressBar.mask = graphics;
         }
 
         function countdown(deltaTime) {
@@ -909,7 +1169,7 @@
             for (i = 0; i < numb; i++) {
                 var coin = new PIXI.AnimatedSprite(sheet3.animations["coin"]);
                 coin.anchor.set(0.5);
-                coin.x = Math.random() * app.render.width;
+                coin.x = Math.random() * (app.render.width - 200);
                 coin.y = 0;
                 coin.loop = true;
                 coin.animationSpeed = 0.5;
@@ -932,9 +1192,8 @@
                 });
 
                 if (!hit) {
-                    console.log("testest");
-                    coins[i].y += dropSpeed;
-                    console.log(coins[i].y);
+
+
                 }
             }
 
@@ -1008,46 +1267,66 @@
 
 
 
-                function onButtonDown() {
-                    this.isDown = true;
-                    this.filters = null;
-
-                }
-
-                function onButtonUp() {
-                    this.isDown = false;
-                    if (this.isOver) {
-                        this.filters = [buttonFilter];
-                    } else {
-
-                    }
-
-                }
-
-                function onButtonOver() {
-                    this.isOver = true;
-                    if (this.isDown) {
-                        return;
-                    }
-                    // Adjust buttonOver texture
-                    this.filters = [buttonFilter];
-
-                    buttonOverAudio.play();
-                }
-
-                function onButtonOut() {
-                    this.isOver = false;
-                    if (this.isDown) {
-                        return;
-                    }
-                    // Adjust buttonOut texture
-                    this.filters = null;
-
-                }
             }
         }
 
+        function onButtonDown() {
+            this.isDown = true;
+            this.filters = null;
+
+        }
+
+        function onButtonUp() {
+            this.isDown = false;
+            if (this.isOver) {
+                this.filters = [buttonFilter];
+            } else {
+
+            }
+
+        }
+
+        function onButtonOver() {
+            this.isOver = true;
+            if (this.isDown) {
+                return;
+            }
+            // Adjust buttonOver texture
+            this.filters = [buttonFilter];
+
+            buttonOverAudio.play();
+        }
+
+        function onButtonOut() {
+            this.isOver = false;
+            if (this.isDown) {
+                return;
+            }
+            // Adjust buttonOut texture
+            this.filters = null;
+
+        }
+
+        function upNumber() {
+            if (numb < 4) {
+                numb++;
+                left++;
+            }
+        }
+
+        function downNumber() {
+            if (numb > 1) {
+                numb--;
+                left--;
+            }
+        }
+
+        function Exit() {
+            state = switchOut;
+        }
+
         function keyboard(keyCode) {
+
             let key = {};
             key.code = keyCode;
             key.isDown = false;
