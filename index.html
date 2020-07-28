@@ -83,7 +83,7 @@
             stroke: "white",
             strokeThickness: 1
         });
-
+        var victoryText;
         const numbText = new PIXI.Text('', numbStyle);
 
         class Bullet {
@@ -584,6 +584,15 @@
 
                         player = players[0];
 
+                        victoryText = new PIXI.Text('PLAYER ' + i + ' VICTORY !!!', victoryStyle);
+
+                        victoryText.x = app.renderer.width / 2;
+                        victoryText.y = app.renderer.height / 2;
+                        victoryText.anchor.set(0.5);
+                        victoryText.visible = false;
+
+                        playScene.addChild(victoryText);
+
                         dropTicker.add(deltaTime => drop(deltaTime));
 
                         turnTicker.add(deltaTime => countdown(deltaTime));
@@ -918,13 +927,7 @@
                     if (numb < 2) {
                         console.log("WIN");
 
-                        const victoryText = new PIXI.Text('PLAYER ' + i + ' VICTORY !!!', victoryStyle);
-
-
-                        victoryText.x = app.renderer.width / 2;
-                        victoryText.y = app.renderer.height / 2;
-                        victoryText.anchor.set(0.5);
-                        playScene.addChild(victoryText);
+                        victoryText.visible = true;
 
                         state = victory;
                     } else
@@ -972,6 +975,7 @@
             }
             if (dead) {
                 disable = false;
+
                 changeTurn();
                 fallTicker.stop();
                 state = play;
@@ -980,15 +984,12 @@
                 player.sprite.y += dropSpeed;
                 player.cannon.y += dropSpeed;
                 player.hText.y += dropSpeed;
-
             } else {
-
                 disable = false;
                 player.anim.x = player.sprite.x;
                 player.anim.y = player.sprite.y;
                 fallTicker.stop();
                 state = play;
-
             }
 
         }
@@ -1104,20 +1105,11 @@
         }
 
         function changeTurn() {
-            let victoryText;
-            if (left < 2) {
-                console.log("WIN");
-                for (i = 0; i < numb; i++) {
-                    if (players[i].health > 0) {
-                        i++;
-                        victoryText = new PIXI.Text('PLAYER ' + i + ' VICTORY !!!', victoryStyle);
-                    }
-                }
 
-                victoryText.x = app.renderer.width / 2;
-                victoryText.y = app.renderer.height / 2;
-                victoryText.anchor.set(0.5);
-                playScene.addChild(victoryText);
+            if (left == 1) {
+                console.log("WIN");
+
+                victoryText.visible = true;
 
                 state = victory;
                 return;
